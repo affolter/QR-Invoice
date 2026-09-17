@@ -1,0 +1,46 @@
+{
+  "name": "qr-invoice",
+  "version": "0.1.0",
+  "description": "Local CLI/library that converts a legacy Swiss QR invoice PDF into a current Swiss QR-bill PDF.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "invoice-converter": "./dist/cli/invoice-converter.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "cli": "tsx src/cli/invoice-converter.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "dependencies": {
+    "jpeg-js": "^0.4.4",
+    "jsqr": "^1.4.0",
+    "pdfjs-dist": "^5.4.54",
+    "pdfkit": "^0.17.2",
+    "pngjs": "^7.0.0",
+    "swissqrbill": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/pdfkit": "^0.17.3",
+    "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "^1.5.6",
+    "qrcode": "^1.5.4",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
