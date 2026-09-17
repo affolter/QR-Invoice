@@ -1,6 +1,6 @@
 export class OcrNotImplementedError extends Error {
   constructor() {
-    super("OCR is out of scope for this milestone. Provide a PDF that contains a decodable Swiss QR code.");
+    super("OCR is out of scope. Pass a Swiss QR SPC text payload instead of a scanned PDF.");
     this.name = "OcrNotImplementedError";
   }
 }

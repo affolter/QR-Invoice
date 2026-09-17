@@ -1,11 +1,10 @@
 import { readFile } from "node:fs/promises";
-import type { InvoiceData, ReviewField } from "./models/invoice.js";
-import type { ParsedInvoice } from "./models/invoice.js";
+import type { InvoiceData, ParsedInvoice, ReviewField } from "./models/invoice.js";
 import { parseQrPayload } from "./parser/qrParser.js";
-import { extractQrFromPdf } from "./parser/pdfParser.js";
+import { extractSwissQrPayloadFromBytes } from "./parser/pdfParser.js";
 import { normalizeInvoice } from "./normalizer/invoiceNormalizer.js";
 import { validateInvoice, type ValidationResult } from "./validation/invoiceValidator.js";
-import { generateInvoicePdf } from "./generator/pdfGenerator.js";
+import { generateInvoicePayload } from "./generator/pdfGenerator.js";
 
 export interface ConversionResult {
   rawQr: string;
@@ -22,17 +21,17 @@ export interface ConvertOptions {
   strict?: boolean;
 }
 
-export async function convertInvoicePdf(
+export async function convertInvoiceFile(
   inputPath: string,
   options: ConvertOptions,
 ): Promise<ConversionResult> {
   const bytes = await readFile(inputPath);
-  const extraction = await extractQrFromPdf(new Uint8Array(bytes));
-  if (!extraction.payload) {
-    throw new Error(extraction.error ?? `No Swiss QR code in ${inputPath}`);
-  }
-  return convertQrPayload(extraction.payload, options);
+  const rawQr = extractSwissQrPayloadFromBytes(new Uint8Array(bytes));
+  return convertQrPayload(rawQr, options);
 }
+
+/** @deprecated Use convertInvoiceFile. Kept so existing call sites keep working. */
+export const convertInvoicePdf = convertInvoiceFile;
 
 export async function convertQrPayload(
   rawQr: string,
@@ -63,7 +62,7 @@ export async function convertQrPayload(
     return result;
   }
 
-  await generateInvoicePdf(normalized.invoice, options.outputPath);
+  await generateInvoicePayload(normalized.invoice, options.outputPath);
   result.outputPath = options.outputPath;
   return result;
 }

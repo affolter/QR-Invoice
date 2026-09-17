@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { certain, missing } from "../models/parsed-field.js";
 import type { ParsedAddress } from "../models/address.js";
 import { normalizeAddress, parseStreetLine } from "./addressNormalizer.js";
@@ -6,6 +7,7 @@ import { normalizeAddress, parseStreetLine } from "./addressNormalizer.js";
 function rawAddress(partial: Partial<Record<keyof ParsedAddress, string>>): ParsedAddress {
   const source = "qr" as const;
   const field = (value: string | undefined) => (value ? certain(value, source) : missing<string>(source));
+  const addressType = (partial.addressType ?? "K") as "S" | "K" | "";
   return {
     name: field(partial.name ?? "Muster AG"),
     street: field(partial.street),
@@ -13,30 +15,34 @@ function rawAddress(partial: Partial<Record<keyof ParsedAddress, string>>): Pars
     postalCode: field(partial.postalCode),
     city: field(partial.city),
     country: field(partial.country ?? "CH"),
-    addressType: field(partial.addressType ?? "K"),
+    addressType: certain(addressType, source),
   };
 }
 
 describe("parseStreetLine (plan fixtures)", () => {
-  it.each([
+  const fixtures = [
     ["Musterstrasse 12", "Musterstrasse", "12", false],
     ["Musterstrasse 12a", "Musterstrasse", "12a", false],
     ["Musterstrasse 12 A", "Musterstrasse", "12A", false],
     ["Musterstrasse 12-14", "Musterstrasse", "12-14", false],
     ["Rue du Lac 12", "Rue du Lac", "12", false],
     ["Chemin de la Gare 4bis", "Chemin de la Gare", "4bis", false],
-  ] as const)("%s", (input, street, building, ambiguous) => {
-    const parsed = parseStreetLine(input);
-    expect(parsed.street).toBe(street);
-    expect(parsed.buildingNumber).toBe(building);
-    expect(parsed.ambiguous).toBe(ambiguous);
-    expect(parsed.confidence).toBeGreaterThanOrEqual(0.8);
-  });
+  ] as const;
+
+  for (const [input, street, building, ambiguous] of fixtures) {
+    it(input, () => {
+      const parsed = parseStreetLine(input);
+      assert.equal(parsed.street, street);
+      assert.equal(parsed.buildingNumber, building);
+      assert.equal(parsed.ambiguous, ambiguous);
+      assert.ok(parsed.confidence >= 0.8);
+    });
+  }
 
   it("does not silently guess when two independent numbers are present", () => {
     const parsed = parseStreetLine("Route 12 Dorf 8");
-    expect(parsed.ambiguous).toBe(true);
-    expect(parsed.confidence).toBeLessThan(0.8);
+    assert.equal(parsed.ambiguous, true);
+    assert.ok(parsed.confidence < 0.8);
   });
 });
 
@@ -50,13 +56,13 @@ describe("normalizeAddress", () => {
         country: "CH",
       }),
     );
-    expect(normalized.street.value).toBe("Musterstrasse");
-    expect(normalized.buildingNumber.value).toBe("25a");
-    expect(normalized.postalCode.value).toBe("8001");
-    expect(normalized.city.value).toBe("Zürich");
-    expect(normalized.country.value).toBe("CH");
-    expect(normalized.addressType.value).toBe("S");
-    expect(normalized.street.source).toBe("inferred");
+    assert.equal(normalized.street.value, "Musterstrasse");
+    assert.equal(normalized.buildingNumber.value, "25a");
+    assert.equal(normalized.postalCode.value, "8001");
+    assert.equal(normalized.city.value, "Zürich");
+    assert.equal(normalized.country.value, "CH");
+    assert.equal(normalized.addressType.value, "S");
+    assert.equal(normalized.street.source, "inferred");
   });
 
   it("keeps an already structured S address from the QR payload", () => {
@@ -70,10 +76,10 @@ describe("normalizeAddress", () => {
         country: "CH",
       }),
     );
-    expect(normalized.street.value).toBe("Bahnhofstrasse");
-    expect(normalized.buildingNumber.value).toBe("12");
-    expect(normalized.street.source).toBe("qr");
-    expect(normalized.street.confidence).toBe(1);
+    assert.equal(normalized.street.value, "Bahnhofstrasse");
+    assert.equal(normalized.buildingNumber.value, "12");
+    assert.equal(normalized.street.source, "qr");
+    assert.equal(normalized.street.confidence, 1);
   });
 
   it("splits a structured street that still contains the building number", () => {
@@ -87,19 +93,19 @@ describe("normalizeAddress", () => {
         country: "CH",
       }),
     );
-    expect(normalized.street.value).toBe("Bahnhofstrasse");
-    expect(normalized.buildingNumber.value).toBe("12a");
-    expect(normalized.buildingNumber.source).toBe("inferred");
+    assert.equal(normalized.street.value, "Bahnhofstrasse");
+    assert.equal(normalized.buildingNumber.value, "12a");
+    assert.equal(normalized.buildingNumber.source, "inferred");
   });
 
   it("maps unambiguous country names and leaves unknown names for review", () => {
     const ch = normalizeAddress(rawAddress({ addressType: "S", street: "A", postalCode: "8001", city: "Zürich", country: "Schweiz" }));
-    expect(ch.country.value).toBe("CH");
-    expect(ch.country.confidence).toBeGreaterThanOrEqual(0.9);
+    assert.equal(ch.country.value, "CH");
+    assert.ok((ch.country.confidence ?? 0) >= 0.9);
 
     const mystery = normalizeAddress(rawAddress({ addressType: "S", street: "A", postalCode: "1", city: "X", country: "Helvetia" }));
-    expect(mystery.country.value).toBe("Helvetia");
-    expect(mystery.country.confidence).toBeLessThan(0.8);
+    assert.equal(mystery.country.value, "Helvetia");
+    assert.ok((mystery.country.confidence ?? 0) < 0.8);
   });
 
   it("does not invent a city when the combined line is not zip+city", () => {
@@ -111,7 +117,7 @@ describe("normalizeAddress", () => {
         country: "CH",
       }),
     );
-    expect(normalized.city.confidence).toBeLessThan(0.8);
-    expect(normalized.postalCode.value).toBeNull();
+    assert.ok((normalized.city.confidence ?? 0) < 0.8);
+    assert.equal(normalized.postalCode.value, null);
   });
 });

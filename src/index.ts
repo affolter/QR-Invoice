@@ -1,12 +1,12 @@
 export { parseQrPayload, QrPayloadParseError } from "./parser/qrParser.js";
-export { extractQrFromPdf, extractQrFromPdfFile, inspectPdf } from "./parser/pdfParser.js";
+export { extractSwissQrPayload, extractSwissQrPayloadFromBytes } from "./parser/pdfParser.js";
 export { parseWithOcr, OcrNotImplementedError } from "./parser/ocrParser.js";
 export { normalizeAddress, parseStreetLine } from "./normalizer/addressNormalizer.js";
 export { normalizeIban } from "./normalizer/ibanNormalizer.js";
 export { normalizeInvoice } from "./normalizer/invoiceNormalizer.js";
 export { validateInvoice } from "./validation/invoiceValidator.js";
-export { SwissQrBillGenerator } from "./generator/qrBillGenerator.js";
-export { generateInvoicePdf } from "./generator/pdfGenerator.js";
-export { convertInvoicePdf, convertQrPayload } from "./pipeline.js";
+export { PayloadQrBillGenerator, buildQrPayload } from "./generator/qrBillGenerator.js";
+export { generateInvoicePayload } from "./generator/pdfGenerator.js";
+export { convertInvoiceFile, convertInvoicePdf, convertQrPayload } from "./pipeline.js";
 export type { QrBillGenerator } from "./generator/qrBillGenerator.js";
 export type { InvoiceData, ParsedInvoice, ParsedField, Address } from "./models/index.js";

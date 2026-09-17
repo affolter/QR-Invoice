@@ -1,13 +1,5 @@
-# PDF fixtures
+# Fixtures
 
-This folder is for **local** invoice PDFs only.
+Put **local SPC payload dumps** in `real/` (gitignored). Do not commit invoices.
 
-`real/` is gitignored. Copy sample invoices there yourself:
-
-```text
-tests/fixtures/pdfs/real/legacy-combined-address.pdf
-```
-
-Do not commit invoices. They contain customer and payment data.
-
-The unit suite uses synthetic SPC strings in `src/parser/qr-payload-fixtures.ts` instead.
+The unit suite uses `src/parser/qr-payload-fixtures.ts`.

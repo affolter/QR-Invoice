@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
-import { convertInvoicePdf } from "../pipeline.js";
+import { convertInvoiceFile } from "../pipeline.js";
 
 function printHelp(): void {
-  console.log(`invoice-converter — convert a Swiss QR invoice PDF locally
+  console.log(`invoice-converter — convert a Swiss QR payload locally (no network)
 
 Usage:
-  invoice-converter <old-invoice.pdf> --output <new-invoice.pdf>
-  invoice-converter <old-invoice.pdf> -o <new-invoice.pdf>
+  invoice-converter <old-payload.txt> --output <new-payload.txt>
+  invoice-converter <old-payload.txt> -o <new-payload.txt>
+
+Input is a Swiss QR-bill SPC text file (or any file that contains that text).
+Output is a normalized SPC payload, not a PDF.
 
 Options:
-  --output, -o      Destination PDF path
-  --accept-review   Generate even when address fields need review
+  --output, -o      Destination path
+  --accept-review   Write even when address fields need review
   --strict          Treat validation warnings as fatal
   --help, -h        Show this help
-
-Processing stays on this machine. No invoice data is uploaded.
 `);
 }
 
@@ -56,7 +57,15 @@ function parseArgs(argv: string[]) {
   return { input: resolve(input), output: resolve(output), acceptReview, strict };
 }
 
-function printIssues(result: Awaited<ReturnType<typeof convertInvoicePdf>>): void {
+const options = parseArgs(process.argv);
+
+try {
+  const result = await convertInvoiceFile(options.input, {
+    outputPath: options.output,
+    acceptReview: options.acceptReview,
+    strict: options.strict,
+  });
+
   if (result.validation.issues.length > 0) {
     console.error("Validation:");
     for (const issue of result.validation.issues) {
@@ -69,17 +78,6 @@ function printIssues(result: Awaited<ReturnType<typeof convertInvoicePdf>>): voi
       console.error(`  ${field.path} = ${JSON.stringify(field.value)} (confidence ${field.confidence}, source ${field.source})`);
     }
   }
-}
-
-const options = parseArgs(process.argv);
-
-try {
-  const result = await convertInvoicePdf(options.input, {
-    outputPath: options.output,
-    acceptReview: options.acceptReview,
-    strict: options.strict,
-  });
-  printIssues(result);
 
   if (!result.validation.valid) {
     console.error("Generation blocked by validation errors. IBAN, amount, currency and reference were not modified.");
@@ -94,7 +92,7 @@ try {
     process.exit(1);
   }
   if (!result.outputPath) {
-    console.error("No PDF was written.");
+    console.error("No payload was written.");
     process.exit(1);
   }
   console.log(`Wrote ${result.outputPath}`);

@@ -1,32 +1,24 @@
-import { describe, expect, it } from "vitest";
-import { convertQrPayload } from "../pipeline.js";
-import { SwissQrBillGenerator } from "./qrBillGenerator.js";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { parseQrPayload } from "../parser/qrParser.js";
 import { buildSwissQrPayload } from "../parser/qr-payload-fixtures.js";
 import { normalizeInvoice } from "../normalizer/invoiceNormalizer.js";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { buildQrPayload } from "./qrBillGenerator.js";
 
-describe("SwissQrBillGenerator", () => {
-  it("wraps swissqrbill and writes a PDF", async () => {
-    const parsed = parseQrPayload(buildSwissQrPayload());
-    const { invoice } = normalizeInvoice(parsed);
-    expect(invoice).not.toBeNull();
-    const bytes = await new SwissQrBillGenerator().generate(invoice!);
-    const header = Buffer.from(bytes.subarray(0, 5)).toString("ascii");
-    expect(header).toBe("%PDF-");
-  });
-});
-
-describe("convertQrPayload", () => {
-  it("writes an output PDF from a synthetic payload", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "qr-invoice-"));
-    const outputPath = join(dir, "new-invoice.pdf");
-    const result = await convertQrPayload(buildSwissQrPayload(), { outputPath });
-    expect(result.validation.valid).toBe(true);
-    expect(result.outputPath).toBe(outputPath);
-    const written = await readFile(outputPath);
-    expect(written.subarray(0, 4).toString()).toBe("%PDF");
+describe("buildQrPayload", () => {
+  it("emits SPC text and round-trips structured fields without changing the IBAN", () => {
+    const raw = buildSwissQrPayload();
+    const { invoice } = normalizeInvoice(parseQrPayload(raw));
+    assert.ok(invoice);
+    const built = buildQrPayload(invoice);
+    assert.match(built, /^SPC\n0200\n1\n/);
+    const again = parseQrPayload(built);
+    assert.equal(again.account.value, invoice.account);
+    assert.equal(again.amount.value, invoice.amount);
+    assert.equal(again.currency.value, invoice.currency);
+    assert.equal(again.reference.value, invoice.reference);
+    assert.equal(again.creditor.addressType.value, "S");
+    assert.equal(again.creditor.street.value, "Rue du Lac");
+    assert.equal(again.creditor.buildingNumber.value, "1268");
   });
 });

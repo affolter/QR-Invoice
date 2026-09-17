@@ -1,39 +1,41 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import PDFDocument from "pdfkit";
-import QRCode from "qrcode";
-import { convertInvoicePdf } from "./pipeline.js";
+import { describe, it } from "node:test";
+import { convertInvoiceFile, convertQrPayload } from "./pipeline.js";
+import { extractSwissQrPayload } from "./parser/pdfParser.js";
 import { buildSwissQrPayload } from "./parser/qr-payload-fixtures.js";
 
-async function writeSyntheticInvoice(path: string, payload: string): Promise<void> {
-  const png = await QRCode.toBuffer(payload, {
-    errorCorrectionLevel: "M",
-    margin: 4,
-    width: 400,
-    type: "png",
+describe("convertQrPayload", () => {
+  it("writes a normalized SPC file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "qr-invoice-"));
+    const outputPath = join(dir, "new-payload.txt");
+    const result = await convertQrPayload(buildSwissQrPayload(), { outputPath });
+    assert.equal(result.validation.valid, true);
+    assert.equal(result.outputPath, outputPath);
+    const written = await readFile(outputPath, "utf8");
+    assert.match(written, /^SPC\n/);
+    assert.match(written, /\nEPD\n/);
   });
-  const chunks: Buffer[] = [];
-  const doc = new PDFDocument({ size: "A4" });
-  const pdfBytes = await new Promise<Buffer>((resolve, reject) => {
-    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
-    doc.image(png, 50, 50, { width: 200 });
-    doc.end();
-  });
-  await writeFile(path, pdfBytes);
-}
+});
 
-describe("convertInvoicePdf", () => {
-  it("runs extract → parse → normalize → validate → generate", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "qr-invoice-cli-"));
-    const input = join(dir, "old-invoice.pdf");
-    const output = join(dir, "new-invoice.pdf");
-    await writeSyntheticInvoice(input, buildSwissQrPayload());
-    const result = await convertInvoicePdf(input, { outputPath: output });
-    expect(result.validation.valid).toBe(true);
-    expect(result.outputPath).toBe(output);
+describe("convertInvoiceFile", () => {
+  it("reads SPC text wrapped in junk bytes without a PDF library", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "qr-invoice-file-"));
+    const input = join(dir, "old.txt");
+    const output = join(dir, "new.txt");
+    await writeFile(input, `header\n${buildSwissQrPayload()}\ntrailer\n`, "utf8");
+    const result = await convertInvoiceFile(input, { outputPath: output });
+    assert.equal(result.validation.valid, true);
+    assert.equal(result.outputPath, output);
+  });
+});
+
+describe("extractSwissQrPayload", () => {
+  it("finds SPC after leading noise", () => {
+    const payload = extractSwissQrPayload(`noise\n${buildSwissQrPayload()}`);
+    assert.equal(payload.split("\n")[0], "SPC");
+    assert.equal(payload.split("\n")[30], "EPD");
   });
 });
