@@ -1,25 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { unwrap } from "../either.js";
-import { parseQrPayload } from "../parser/qrParser.js";
-import { buildSwissQrPayload } from "../parser/qr-payload-fixtures.js";
-import { normalizeInvoice } from "../normalizer/invoiceNormalizer.js";
-import { normalizeIban } from "../normalizer/ibanNormalizer.js";
-import { validateInvoice } from "./invoiceValidator.js";
-
-describe("normalizeIban", () => {
-  it("strips spaces only", () => {
-    const field = normalizeIban("CH44 3199 9123 0008 8901 2");
-    assert.equal(field.value, "CH4431999123000889012");
-    assert.equal(field.confidence, 1);
-  });
-
-  it("does not repair a truncated IBAN", () => {
-    const field = normalizeIban("CH4431999");
-    assert.equal(field.value, "CH4431999");
-    assert.ok((field.confidence ?? 0) < 0.5);
-  });
-});
+import { unwrap } from "./either.js";
+import { buildSwissQrPayload } from "./fixtures.js";
+import { normalizeInvoice } from "./normalize.js";
+import { parseQrPayload } from "./parse.js";
+import { validateInvoice } from "./validate.js";
 
 describe("validateInvoice", () => {
   function invoiceFrom(overrides: Parameters<typeof buildSwissQrPayload>[0] = {}) {
@@ -27,8 +12,7 @@ describe("validateInvoice", () => {
   }
 
   it("accepts the synthetic QR-IBAN / QRR example", () => {
-    const { invoice } = invoiceFrom();
-    assert.equal(validateInvoice(invoice).valid, true);
+    assert.equal(validateInvoice(invoiceFrom().invoice).valid, true);
   });
 
   it("rejects a QR-IBAN paired with NON without changing the IBAN", () => {

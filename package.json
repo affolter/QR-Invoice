@@ -5,7 +5,7 @@
   "type": "module",
   "license": "Apache-2.0",
   "bin": {
-    "invoice-converter": "./dist/cli/invoice-converter.js"
+    "invoice-converter": "./dist/cli.js"
   },
   "exports": {
     ".": "./dist/index.js"
@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
-    "cli": "node dist/cli/invoice-converter.js",
+    "cli": "node dist/cli.js",
     "test": "rm -rf dist && tsc -p tsconfig.json && node --test $(find dist -name '*.test.js')",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

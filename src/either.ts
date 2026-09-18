@@ -1,17 +1,13 @@
-export type Either<E, A> =
-  | { readonly ok: true; readonly value: A }
-  | { readonly ok: false; readonly error: E };
+export type Either<E, A> = { ok: true; value: A } | { ok: false; error: E };
 
-export const right = <A, E = string>(value: A): Either<E, A> => ({ ok: true, value });
-export const left = <E, A = never>(error: E): Either<E, A> => ({ ok: false, error });
+export const right = <A>(value: A): Either<string, A> => ({ ok: true, value });
+export const left = <A = never>(error: string): Either<string, A> => ({ ok: false, error });
 
 export function unwrap<A>(e: Either<string, A>): A {
-  if (!e.ok) {
-    throw new Error(e.error);
-  }
+  if (!e.ok) throw new Error(e.error);
   return e.value;
 }
 
-export function andThen<E, A, B>(e: Either<E, A>, f: (value: A) => Either<E, B>): Either<E, B> {
+export function andThen<A, B>(e: Either<string, A>, f: (value: A) => Either<string, B>): Either<string, B> {
   return e.ok ? f(e.value) : e;
 }

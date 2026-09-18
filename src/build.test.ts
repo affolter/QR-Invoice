@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { unwrap } from "../either.js";
-import { parseQrPayload } from "../parser/qrParser.js";
-import { buildSwissQrPayload } from "../parser/qr-payload-fixtures.js";
-import { normalizeInvoice } from "../normalizer/invoiceNormalizer.js";
-import { buildQrPayload } from "./buildQrPayload.js";
+import { unwrap } from "./either.js";
+import { buildQrPayload } from "./build.js";
+import { buildSwissQrPayload } from "./fixtures.js";
+import { normalizeInvoice } from "./normalize.js";
+import { parseQrPayload } from "./parse.js";
 
 describe("buildQrPayload", () => {
   it("emits SPC text and round-trips structured fields without changing the IBAN", () => {

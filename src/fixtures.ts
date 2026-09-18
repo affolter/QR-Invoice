@@ -1,33 +1,6 @@
-export interface PayloadOverrides {
-  version?: string;
-  iban?: string;
-  addressType?: string;
-  name?: string;
-  street?: string;
-  buildingNumber?: string;
-  postalCode?: string;
-  city?: string;
-  country?: string;
-  amount?: string;
-  currency?: string;
-  debtorType?: string;
-  debtorName?: string;
-  debtorStreet?: string;
-  debtorBuilding?: string;
-  debtorPostal?: string;
-  debtorCity?: string;
-  debtorCountry?: string;
-  referenceType?: string;
-  reference?: string;
-  message?: string;
-  billing?: string;
-  eol?: "\n" | "\r\n";
-}
-
-/** Synthetic SIX-style payload. Not a real invoice. */
-export function buildSwissQrPayload(overrides: PayloadOverrides = {}): string {
+export function buildSwissQrPayload(overrides: Record<string, string> = {}): string {
   const eol = overrides.eol ?? "\n";
-  const fields = [
+  return [
     "SPC",
     overrides.version ?? "0200",
     "1",
@@ -60,6 +33,5 @@ export function buildSwissQrPayload(overrides: PayloadOverrides = {}): string {
     overrides.message ?? "Invoice 313947143000901",
     "EPD",
     overrides.billing ?? "//S1/10/10201409/11/190512/20/1400.000-53/30/106017086/31/180508/32/7.7/40/2:10;0:40",
-  ];
-  return fields.join(eol);
+  ].join(eol);
 }
