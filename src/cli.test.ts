@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { unwrap } from "./either.js";
 import { parseArgs } from "./cli.js";
 
 describe("CLI argv", () => {
   it("returns help for -h and --help", () => {
-    assert.equal(unwrapHelp(parseArgs(["node", "cli", "--help"])), "help");
-    assert.equal(unwrapHelp(parseArgs(["node", "cli", "-h"])), "help");
+    assert.equal(unwrap(parseArgs(["node", "cli", "--help"])), "help");
+    assert.equal(unwrap(parseArgs(["node", "cli", "-h"])), "help");
   });
 
   it("rejects missing input/output", () => {
@@ -37,9 +38,3 @@ describe("CLI argv", () => {
     if (!parsed.ok) assert.match(parsed.error, /Unknown option: --pdf/);
   });
 });
-
-function unwrapHelp<T>(e: { ok: true; value: T } | { ok: false; error: string }): T {
-  assert.equal(e.ok, true);
-  if (!e.ok) throw new Error(e.error);
-  return e.value;
-}
