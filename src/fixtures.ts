@@ -1,10 +1,40 @@
-export function buildSwissQrPayload(overrides: Record<string, string> = {}): string {
+export type PayloadOverrides = {
+  version?: string;
+  iban?: string;
+  addressType?: string;
+  name?: string;
+  street?: string;
+  buildingNumber?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  amount?: string;
+  currency?: string;
+  debtorType?: string;
+  debtorName?: string;
+  debtorStreet?: string;
+  debtorBuilding?: string;
+  debtorPostal?: string;
+  debtorCity?: string;
+  debtorCountry?: string;
+  referenceType?: string;
+  reference?: string;
+  message?: string;
+  billing?: string;
+  eol?: "\n" | "\r\n";
+};
+
+export const QR_IBAN = "CH4431999123000889012";
+export const CH_IBAN = "CH9300762011623852957";
+export const SCOR_REF = "RF18539007547034";
+
+export function buildSwissQrPayload(overrides: PayloadOverrides = {}): string {
   const eol = overrides.eol ?? "\n";
   return [
     "SPC",
     overrides.version ?? "0200",
     "1",
-    overrides.iban ?? "CH4431999123000889012",
+    overrides.iban ?? QR_IBAN,
     overrides.addressType ?? "S",
     overrides.name ?? "Robert Schneider AG",
     overrides.street ?? "Rue du Lac",
@@ -35,3 +65,30 @@ export function buildSwissQrPayload(overrides: Record<string, string> = {}): str
     overrides.billing ?? "//S1/10/10201409/11/190512/20/1400.000-53/30/106017086/31/180508/32/7.7/40/2:10;0:40",
   ].join(eol);
 }
+
+export const debtorLessPayload = () =>
+  buildSwissQrPayload({
+    debtorType: "",
+    debtorName: "",
+    debtorStreet: "",
+    debtorBuilding: "",
+    debtorPostal: "",
+    debtorCity: "",
+    debtorCountry: "",
+  });
+
+export const scorPayload = () =>
+  buildSwissQrPayload({
+    iban: CH_IBAN,
+    referenceType: "SCOR",
+    reference: SCOR_REF,
+  });
+
+export const reviewPayload = () =>
+  buildSwissQrPayload({
+    addressType: "K",
+    street: "Route 12 Dorf 8",
+    buildingNumber: "8001 Zürich",
+    postalCode: "",
+    city: "",
+  });

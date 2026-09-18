@@ -1,11 +1,11 @@
 import { andThen, left, right, type Either } from "./either.js";
-import type { AddressType, ParsedAddress, ParsedInvoice } from "./models.js";
+import type { AddressType, ParsedAddress, ParsedField, ParsedInvoice } from "./models.js";
 import { certain, field, fromLine, missing } from "./models.js";
 
 const MIN = 31;
 
 function splitSpcLines(raw: string): string[] {
-  return raw.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n+$/, "").split("\n");
+  return raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n+$/, "").split("\n");
 }
 
 function takeSpcFields(lines: string[]): Either<string, string[]> {
@@ -17,14 +17,21 @@ function takeSpcFields(lines: string[]): Either<string, string[]> {
 }
 
 export function extractSwissQrPayload(raw: string): Either<string, string> {
-  const start = raw.replace(/^\uFEFF/, "").search(/SPC\r?\n/);
+  const text = raw.replace(/^\uFEFF/, "");
+  const start = text.search(/SPC\r?\n/);
   if (start < 0) return left("No Swiss QR payload (SPC … EPD) found. Pass a .txt/.spc payload file.");
-  return andThen(takeSpcFields(splitSpcLines(raw.slice(start))), (lines) => right(lines.join("\n")));
+  return andThen(takeSpcFields(splitSpcLines(text.slice(start))), (lines) => right(lines.join("\n")));
+}
+
+function parseAddressType(lines: string[], index: number): ParsedField<AddressType> {
+  const value = lines[index] ?? "";
+  if (value === "S" || value === "K") return certain(value);
+  return missing();
 }
 
 function parseAddress(lines: string[], start: number): ParsedAddress {
   return {
-    addressType: fromLine<AddressType>(lines, start),
+    addressType: parseAddressType(lines, start),
     name: fromLine(lines, start + 1),
     street: fromLine(lines, start + 2),
     buildingNumber: fromLine(lines, start + 3),
@@ -36,7 +43,7 @@ function parseAddress(lines: string[], start: number): ParsedAddress {
 
 export function parseQrPayload(raw: string): Either<string, ParsedInvoice> {
   if (!raw?.trim()) return left("QR payload is empty");
-  return andThen(takeSpcFields(splitSpcLines(raw)), (lines) => {
+  return andThen(takeSpcFields(splitSpcLines(raw.replace(/^\uFEFF/, ""))), (lines) => {
     if (lines[0] !== "SPC") return left(`QR type must be SPC, got ${JSON.stringify(lines[0])}`);
     if (lines[2] !== "1") return left(`Coding type must be 1, got ${JSON.stringify(lines[2])}`);
     const creditor = parseAddress(lines, 4);

@@ -22,12 +22,6 @@ export function fromLine<T extends string = string>(lines: string[], index: numb
   return value ? certain(value as T) : missing<T>();
 }
 
-export function copyIfPresent(target: object, key: string, parsed: ParsedField<unknown>): void {
-  if (parsed.value !== null && parsed.value !== undefined && parsed.value !== "") {
-    (target as Record<string, unknown>)[key] = parsed.value;
-  }
-}
-
 export function needsReview(parsed: ParsedField<unknown>): boolean {
   return parsed.value != null && parsed.value !== "" && parsed.confidence < REVIEW_THRESHOLD;
 }

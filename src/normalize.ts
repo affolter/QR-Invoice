@@ -1,5 +1,5 @@
-import type { AddressType, FieldSource, InvoiceData, ParsedAddress, ParsedInvoice, ReviewField } from "./models.js";
-import { certain, copyIfPresent, field, missing, needsReview } from "./models.js";
+import type { AddressType, FieldSource, InvoiceData, ParsedAddress, ParsedInvoice, Party, ReviewField } from "./models.js";
+import { certain, field, missing, needsReview } from "./models.js";
 
 const BUILDING_AT_END =
   /^(.+?)\s+(\d+[a-zA-Z]{0,3}|\d+\s*-\s*\d+|\d+\s+[A-Za-z]|[A-Za-z]?\d+[a-zA-Z]{0,2})$/u;
@@ -58,9 +58,13 @@ function blank(source: FieldSource): ParsedAddress {
   };
 }
 
+function addressTypeOf(raw: string | null): AddressType {
+  return raw === "S" || raw === "K" ? raw : "";
+}
+
 export function normalizeAddress(input: ParsedAddress | null | undefined): ParsedAddress {
   if (!input) return blank("inferred");
-  const type = (input.addressType.value ?? "") as AddressType;
+  const type = addressTypeOf(input.addressType.value);
   const source = input.name.source;
   const result: ParsedAddress = {
     name: input.name.value ? field(input.name.value.trim(), input.name.confidence, input.name.source) : missing(source),
@@ -134,14 +138,22 @@ function flagReview(prefix: string, address: ParsedAddress, review: ReviewField[
   }
 }
 
-function toParty(address: ParsedAddress, account?: string) {
-  const party: Record<string, unknown> = { name: address.name.value, country: address.country.value };
-  copyIfPresent(party, "street", address.street);
-  copyIfPresent(party, "buildingNumber", address.buildingNumber);
-  copyIfPresent(party, "postalCode", address.postalCode);
-  copyIfPresent(party, "city", address.city);
-  if (account) party.account = account;
-  return party;
+function optionalText(parsed: { value: string | null }): string | undefined {
+  return parsed.value ? parsed.value : undefined;
+}
+
+function toParty(address: ParsedAddress): Party | null {
+  const name = address.name.value;
+  const country = address.country.value;
+  if (!name || !country) return null;
+  return {
+    name,
+    country,
+    ...(optionalText(address.street) ? { street: optionalText(address.street) } : {}),
+    ...(optionalText(address.buildingNumber) ? { buildingNumber: optionalText(address.buildingNumber) } : {}),
+    ...(optionalText(address.postalCode) ? { postalCode: optionalText(address.postalCode) } : {}),
+    ...(optionalText(address.city) ? { city: optionalText(address.city) } : {}),
+  };
 }
 
 export function normalizeInvoice(parsed: ParsedInvoice) {
@@ -155,25 +167,28 @@ export function normalizeInvoice(parsed: ParsedInvoice) {
     review.push({ path: "account", value: account.value, confidence: account.confidence, source: account.source });
   }
   const parsedOut = { ...parsed, creditor, debtor, account };
-  const name = creditor.name.value;
-  const country = creditor.country.value;
+  const party = toParty(creditor);
   const iban = account.value;
   const currency = parsed.currency.value;
   const referenceType = parsed.referenceType.value;
-  if (!name || !country || !iban || !currency || !referenceType) {
-    return { parsed: parsedOut, invoice: null as InvoiceData | null, review };
+  if (!party || !iban || !currency || !referenceType) {
+    return { parsed: parsedOut, invoice: null, review };
   }
-  const invoice = {
+  const debtorParty = debtor ? toParty(debtor) : null;
+  const invoice: InvoiceData = {
     qrType: parsed.qrType.value ?? "SPC",
     qrVersion: parsed.qrVersion.value ?? "0200",
     account: iban,
     currency,
     referenceType,
-    creditor: toParty(creditor, iban),
-  } as InvoiceData;
-  for (const key of ["amount", "reference", "message", "additionalInformation", "av1", "av2"] as const) {
-    copyIfPresent(invoice, key, parsed[key]);
-  }
-  if (debtor?.name.value && debtor.country.value) invoice.debtor = toParty(debtor) as InvoiceData["debtor"];
+    creditor: { ...party, account: iban },
+    ...(parsed.amount.value != null ? { amount: parsed.amount.value } : {}),
+    ...(optionalText(parsed.reference) ? { reference: optionalText(parsed.reference) } : {}),
+    ...(optionalText(parsed.message) ? { message: optionalText(parsed.message) } : {}),
+    ...(optionalText(parsed.additionalInformation) ? { additionalInformation: optionalText(parsed.additionalInformation) } : {}),
+    ...(optionalText(parsed.av1) ? { av1: optionalText(parsed.av1) } : {}),
+    ...(optionalText(parsed.av2) ? { av2: optionalText(parsed.av2) } : {}),
+    ...(debtorParty ? { debtor: debtorParty } : {}),
+  };
   return { parsed: parsedOut, invoice, review };
 }

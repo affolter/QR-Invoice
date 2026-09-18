@@ -38,9 +38,9 @@ export function canWrite(
   return right(result.invoice);
 }
 
-export async function convertQrPayload(rawQr: string, options: ConvertOptions): Promise<ConversionResult> {
+export async function convertQrPayload(rawQr: string, options: ConvertOptions): Promise<Either<string, ConversionResult>> {
   const parsed = parseQrPayload(rawQr);
-  if (!parsed.ok) throw new Error(parsed.error);
+  if (!parsed.ok) return parsed;
   const normalized = normalizeInvoice(parsed.value);
   const result: ConversionResult = {
     rawQr,
@@ -50,16 +50,25 @@ export async function convertQrPayload(rawQr: string, options: ConvertOptions): 
     validation: validateInvoice(normalized.invoice),
   };
   const gate = canWrite(result, options);
-  if (gate.ok) {
+  if (!gate.ok) return right(result);
+  try {
     await mkdir(dirname(options.outputPath), { recursive: true });
     await writeFile(options.outputPath, buildQrPayload(gate.value), "utf8");
-    result.outputPath = options.outputPath;
+  } catch (error) {
+    return left(error instanceof Error ? error.message : String(error));
   }
-  return result;
+  result.outputPath = options.outputPath;
+  return right(result);
 }
 
-export async function convertInvoiceFile(inputPath: string, options: ConvertOptions): Promise<ConversionResult> {
-  const extracted = extractSwissQrPayload(await readFile(inputPath, "utf8"));
-  if (!extracted.ok) throw new Error(extracted.error);
+export async function convertInvoiceFile(inputPath: string, options: ConvertOptions): Promise<Either<string, ConversionResult>> {
+  let text: string;
+  try {
+    text = await readFile(inputPath, "utf8");
+  } catch (error) {
+    return left(error instanceof Error ? error.message : String(error));
+  }
+  const extracted = extractSwissQrPayload(text);
+  if (!extracted.ok) return extracted;
   return convertQrPayload(extracted.value, options);
 }

@@ -25,6 +25,23 @@ describe("parseQrPayload", () => {
     assert.equal(parsed.amount.confidence, 1);
   });
 
+  it("parses a debtor-less payload as a missing debtor", () => {
+    const parsed = unwrap(
+      parseQrPayload(
+        buildSwissQrPayload({
+          debtorType: "",
+          debtorName: "",
+          debtorStreet: "",
+          debtorBuilding: "",
+          debtorPostal: "",
+          debtorCity: "",
+          debtorCountry: "",
+        }),
+      ),
+    );
+    assert.equal(parsed.debtor, null);
+  });
+
   it("parses CRLF and a combined (K) legacy address without rewriting it", () => {
     const parsed = unwrap(
       parseQrPayload(
@@ -75,8 +92,8 @@ describe("extractSwissQrPayload", () => {
     assert.equal(extractSwissQrPayload("%PDF-1.4 with no qr").ok, false);
   });
 
-  it("finds SPC after leading noise", () => {
-    const payload = unwrap(extractSwissQrPayload(`noise\n${buildSwissQrPayload()}`));
+  it("finds SPC after a BOM and leading noise using the same stripped string", () => {
+    const payload = unwrap(extractSwissQrPayload(`\uFEFFnoise\n${buildSwissQrPayload()}`));
     assert.equal(payload.split("\n")[0], "SPC");
     assert.equal(payload.split("\n")[30], "EPD");
   });

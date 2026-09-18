@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { unwrap } from "./either.js";
-import { buildSwissQrPayload } from "./fixtures.js";
+import { CH_IBAN, SCOR_REF, buildSwissQrPayload, debtorLessPayload, scorPayload } from "./fixtures.js";
 import { normalizeInvoice } from "./normalize.js";
 import { parseQrPayload } from "./parse.js";
 import { validateInvoice } from "./validate.js";
@@ -47,5 +47,26 @@ describe("validateInvoice", () => {
     const result = validateInvoice(invoice);
     assert.equal(result.valid, true);
     assert.ok(result.issues.some((issue) => issue.code === "amount.empty"));
+  });
+
+  it("accepts a non-QR CH-IBAN with a SCOR reference and does not rewrite either", () => {
+    const { invoice } = normalizeInvoice(unwrap(parseQrPayload(scorPayload())));
+    assert.equal(invoice?.account, CH_IBAN);
+    assert.equal(invoice?.reference, SCOR_REF);
+    assert.equal(invoice?.referenceType, "SCOR");
+    assert.equal(validateInvoice(invoice).valid, true);
+  });
+
+  it("accepts a non-QR CH-IBAN with NON and does not rewrite the IBAN", () => {
+    const { invoice } = invoiceFrom({ iban: CH_IBAN, referenceType: "NON", reference: "" });
+    assert.equal(invoice?.account, CH_IBAN);
+    assert.equal(invoice?.reference, undefined);
+    assert.equal(validateInvoice(invoice).valid, true);
+  });
+
+  it("accepts a debtor-less bill", () => {
+    const { invoice } = normalizeInvoice(unwrap(parseQrPayload(debtorLessPayload())));
+    assert.equal(invoice?.debtor, undefined);
+    assert.equal(validateInvoice(invoice).valid, true);
   });
 });

@@ -1,6 +1,6 @@
 # QR-Invoice
 
-Local CLI: Swiss QR-bill SPC text in, normalized SPC text out.
+Local CLI: Swiss Payments Code (SPC) text in, normalized SPC text out. It does not read PDFs or raster QR images.
 
 ```bash
 npm install
