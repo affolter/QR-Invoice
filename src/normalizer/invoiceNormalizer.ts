@@ -1,25 +1,24 @@
-import type { InvoiceData, ParsedInvoice } from "../models/invoice.js";
-import { needsReview, CONFIDENCE_REVIEW_THRESHOLD } from "../models/parsed-field.js";
+import type { InvoiceData, ParsedInvoice, ReviewField } from "../models/invoice.js";
 import type { ParsedAddress } from "../models/address.js";
-import type { ReviewField } from "../models/invoice.js";
+import { copyIfPresent, needsReview, CONFIDENCE_REVIEW_THRESHOLD } from "../models/parsed-field.js";
 import { normalizeAddress } from "./addressNormalizer.js";
 import { normalizeIban } from "./ibanNormalizer.js";
 
-export interface NormalizedInvoice {
+export type NormalizedInvoice = {
   parsed: ParsedInvoice;
   invoice: InvoiceData | null;
   review: ReviewField[];
-}
+};
 
 function collectAddressReview(prefix: string, address: ParsedAddress, review: ReviewField[]): void {
-  const fields: Array<[string, ParsedAddress[keyof ParsedAddress]]> = [
+  const fields = [
     ["name", address.name],
     ["street", address.street],
     ["buildingNumber", address.buildingNumber],
     ["postalCode", address.postalCode],
     ["city", address.city],
     ["country", address.country],
-  ];
+  ] as const;
   for (const [name, field] of fields) {
     if (needsReview(field)) {
       review.push({
@@ -32,13 +31,23 @@ function collectAddressReview(prefix: string, address: ParsedAddress, review: Re
   }
 }
 
-function requiredString(value: string | null | undefined): string {
-  return value ?? "";
+function toParty(address: ParsedAddress, account?: string) {
+  const party: Record<string, unknown> = {
+    name: address.name.value,
+    country: address.country.value,
+  };
+  copyIfPresent(party, "street", address.street);
+  copyIfPresent(party, "buildingNumber", address.buildingNumber);
+  copyIfPresent(party, "postalCode", address.postalCode);
+  copyIfPresent(party, "city", address.city);
+  if (account) {
+    party.account = account;
+  }
+  return party;
 }
 
 /**
- * Builds the canonical InvoiceData. Address fields may be inferred; IBAN, amount,
- * currency and reference are copied from the QR payload without heuristic repair.
+ * Canonical InvoiceData. Address may be inferred; IBAN, amount, currency, reference are copied as-is.
  */
 export function normalizeInvoice(parsed: ParsedInvoice): NormalizedInvoice {
   const review: ReviewField[] = [];
@@ -64,59 +73,34 @@ export function normalizeInvoice(parsed: ParsedInvoice): NormalizedInvoice {
   const name = creditor.name.value;
   const country = creditor.country.value;
   const iban = account.value;
+  const parsedWithNorm = { ...parsed, creditor, debtor, account };
 
   if (!name || !country || !iban || !currency || !referenceType) {
-    return { parsed: { ...parsed, creditor, debtor, account }, invoice: null, review };
+    return { parsed: parsedWithNorm, invoice: null, review };
   }
 
-  const invoice: InvoiceData = {
+  const invoice = {
     qrType: parsed.qrType.value ?? "SPC",
     qrVersion: parsed.qrVersion.value ?? "0200",
     account: iban,
     currency,
     referenceType,
-    creditor: {
-      name,
-      street: creditor.street.value ?? undefined,
-      buildingNumber: creditor.buildingNumber.value ?? undefined,
-      postalCode: creditor.postalCode.value ?? undefined,
-      city: creditor.city.value ?? undefined,
-      country,
-      account: iban,
-    },
-  };
+    creditor: toParty(creditor, iban),
+  } as InvoiceData;
 
-  if (parsed.amount.value !== null) {
-    invoice.amount = parsed.amount.value;
-  }
-  if (parsed.reference.value) {
-    invoice.reference = parsed.reference.value;
-  }
-  if (parsed.message.value) {
-    invoice.message = parsed.message.value;
-  }
-  if (parsed.additionalInformation.value) {
-    invoice.additionalInformation = parsed.additionalInformation.value;
-  }
-  if (parsed.av1.value) {
-    invoice.av1 = parsed.av1.value;
-  }
-  if (parsed.av2.value) {
-    invoice.av2 = parsed.av2.value;
-  }
+  copyIfPresent(invoice, "amount", parsed.amount);
+  copyIfPresent(invoice, "reference", parsed.reference);
+  copyIfPresent(invoice, "message", parsed.message);
+  copyIfPresent(invoice, "additionalInformation", parsed.additionalInformation);
+  copyIfPresent(invoice, "av1", parsed.av1);
+  copyIfPresent(invoice, "av2", parsed.av2);
+
   if (debtor?.name.value && debtor.country.value) {
-    invoice.debtor = {
-      name: requiredString(debtor.name.value),
-      street: debtor.street.value ?? undefined,
-      buildingNumber: debtor.buildingNumber.value ?? undefined,
-      postalCode: debtor.postalCode.value ?? undefined,
-      city: debtor.city.value ?? undefined,
-      country: debtor.country.value,
-    };
+    invoice.debtor = toParty(debtor) as InvoiceData["debtor"];
   }
 
   return {
-    parsed: { ...parsed, creditor, debtor, account },
+    parsed: parsedWithNorm,
     invoice,
     review: review.filter((item) => item.confidence < CONFIDENCE_REVIEW_THRESHOLD),
   };

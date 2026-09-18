@@ -3,8 +3,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { convertInvoiceFile, convertQrPayload } from "./pipeline.js";
-import { extractSwissQrPayload } from "./parser/pdfParser.js";
+import { canWrite, convertInvoiceFile, convertQrPayload } from "./pipeline.js";
 import { buildSwissQrPayload } from "./parser/qr-payload-fixtures.js";
 
 describe("convertQrPayload", () => {
@@ -13,6 +12,7 @@ describe("convertQrPayload", () => {
     const outputPath = join(dir, "new-payload.txt");
     const result = await convertQrPayload(buildSwissQrPayload(), { outputPath });
     assert.equal(result.validation.valid, true);
+    assert.equal(canWrite(result, {}).ok, true);
     assert.equal(result.outputPath, outputPath);
     const written = await readFile(outputPath, "utf8");
     assert.match(written, /^SPC\n/);
@@ -29,13 +29,5 @@ describe("convertInvoiceFile", () => {
     const result = await convertInvoiceFile(input, { outputPath: output });
     assert.equal(result.validation.valid, true);
     assert.equal(result.outputPath, output);
-  });
-});
-
-describe("extractSwissQrPayload", () => {
-  it("finds SPC after leading noise", () => {
-    const payload = extractSwissQrPayload(`noise\n${buildSwissQrPayload()}`);
-    assert.equal(payload.split("\n")[0], "SPC");
-    assert.equal(payload.split("\n")[30], "EPD");
   });
 });

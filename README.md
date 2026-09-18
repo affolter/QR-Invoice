@@ -26,7 +26,7 @@ Options:
 - `--accept-review` — write even if address fields have low confidence
 - `--strict` — treat validation warnings as fatal
 
-IBAN, amount, currency, and reference are never rewritten by heuristics.
+IBAN, amount, currency, and reference are never rewritten by heuristics. Write vs skip is one function, `canWrite`, used by the CLI and the pipeline.
 
 ## Tests
 
@@ -38,14 +38,15 @@ Fixtures are synthetic SPC strings in `src/parser/qr-payload-fixtures.ts`.
 
 ## Adding real samples
 
-Copy payload dumps (not live PDFs) into `tests/fixtures/pdfs/real/` on your machine (gitignored). Image-only PDFs are out of scope until a QR decoder is added on purpose.
+Copy payload dumps into `tests/fixtures/pdfs/real/` on your machine (gitignored).
 
 ## Layout
 
 ```
-src/parser/      qrParser, SPC text extract (OCR stub only)
-src/normalizer/  address, IBAN (spaces only), invoice
-src/validation/  errors vs warnings
-src/generator/   SPC payload builder (QrBillGenerator)
-src/cli/         invoice-converter
+src/parser/       parseQrPayload, takeSpcFields / extractSwissQrPayload
+src/normalizer/   address, IBAN (spaces only), invoice
+src/validation/   errors vs warnings (one mod97)
+src/generator/    buildQrPayload
+src/pipeline.ts   convert, canWrite
+src/cli/          invoice-converter
 ```

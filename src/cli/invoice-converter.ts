@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
-import { convertInvoiceFile } from "../pipeline.js";
+import { canWrite, convertInvoiceFile } from "../pipeline.js";
 
 function printHelp(): void {
   console.log(`invoice-converter — convert a Swiss QR payload locally (no network)
@@ -66,38 +66,20 @@ try {
     strict: options.strict,
   });
 
-  if (result.validation.issues.length > 0) {
-    console.error("Validation:");
-    for (const issue of result.validation.issues) {
-      console.error(`  [${issue.severity}] ${issue.field}: ${issue.message}`);
-    }
+  for (const issue of result.validation.issues) {
+    console.error(`  [${issue.severity}] ${issue.field}: ${issue.message}`);
   }
-  if (result.review.length > 0) {
-    console.error("Needs review (low-confidence address fields; not guessed silently):");
-    for (const field of result.review) {
-      console.error(`  ${field.path} = ${JSON.stringify(field.value)} (confidence ${field.confidence}, source ${field.source})`);
-    }
+  for (const field of result.review) {
+    console.error(`  ${field.path} = ${JSON.stringify(field.value)} (confidence ${field.confidence}, source ${field.source})`);
   }
 
-  if (!result.validation.valid) {
-    console.error("Generation blocked by validation errors. IBAN, amount, currency and reference were not modified.");
-    process.exit(1);
-  }
-  if (result.review.length > 0 && !options.acceptReview) {
-    console.error("Generation blocked until ambiguous address fields are reviewed. Re-run with --accept-review only if you accept the inferred values.");
-    process.exit(1);
-  }
-  if (options.strict && result.validation.issues.some((issue) => issue.severity === "warning")) {
-    console.error("Generation blocked by --strict (warnings present).");
-    process.exit(1);
-  }
-  if (!result.outputPath) {
-    console.error("No payload was written.");
+  const gate = canWrite(result, options);
+  if (!gate.ok) {
+    console.error(gate.error);
     process.exit(1);
   }
   console.log(`Wrote ${result.outputPath}`);
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }

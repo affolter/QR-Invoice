@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { unwrap } from "../either.js";
 import { parseQrPayload } from "../parser/qrParser.js";
 import { buildSwissQrPayload } from "../parser/qr-payload-fixtures.js";
 import { normalizeInvoice } from "../normalizer/invoiceNormalizer.js";
@@ -22,7 +23,7 @@ describe("normalizeIban", () => {
 
 describe("validateInvoice", () => {
   function invoiceFrom(overrides: Parameters<typeof buildSwissQrPayload>[0] = {}) {
-    return normalizeInvoice(parseQrPayload(buildSwissQrPayload(overrides)));
+    return normalizeInvoice(unwrap(parseQrPayload(buildSwissQrPayload(overrides))));
   }
 
   it("accepts the synthetic QR-IBAN / QRR example", () => {

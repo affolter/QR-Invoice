@@ -2,16 +2,16 @@ import type { ParsedField } from "./parsed-field.js";
 
 export type AddressType = "S" | "K" | "";
 
-export interface Address {
+export type Address = {
   name: string;
   street?: string;
   buildingNumber?: string;
   postalCode?: string;
   city?: string;
   country: string;
-}
+};
 
-export interface ParsedAddress {
+export type ParsedAddress = {
   name: ParsedField<string>;
   street: ParsedField<string>;
   buildingNumber: ParsedField<string>;
@@ -19,4 +19,4 @@ export interface ParsedAddress {
   city: ParsedField<string>;
   country: ParsedField<string>;
   addressType: ParsedField<AddressType>;
-}
+};

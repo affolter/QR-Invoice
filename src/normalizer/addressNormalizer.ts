@@ -40,8 +40,7 @@ function mapCountry(raw: string | null, source: FieldSource) {
   return parsedField(trimmed, 0.3, "inferred");
 }
 
-export interface StreetParse {
-  street: string | null;
+export type StreetParse = {  street: string | null;
   buildingNumber: string | null;
   confidence: number;
   ambiguous: boolean;
