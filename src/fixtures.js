@@ -1,34 +1,42 @@
-export type PayloadOverrides = {
-  version?: string;
-  iban?: string;
-  addressType?: string;
-  name?: string;
-  street?: string;
-  buildingNumber?: string;
-  postalCode?: string;
-  city?: string;
-  country?: string;
-  amount?: string;
-  currency?: string;
-  debtorType?: string;
-  debtorName?: string;
-  debtorStreet?: string;
-  debtorBuilding?: string;
-  debtorPostal?: string;
-  debtorCity?: string;
-  debtorCountry?: string;
-  referenceType?: string;
-  reference?: string;
-  message?: string;
-  billing?: string;
-  eol?: "\n" | "\r\n";
-};
+/**
+ * @typedef { {
+ *   version?: string,
+ *   iban?: string,
+ *   addressType?: string,
+ *   name?: string,
+ *   street?: string,
+ *   buildingNumber?: string,
+ *   postalCode?: string,
+ *   city?: string,
+ *   country?: string,
+ *   amount?: string,
+ *   currency?: string,
+ *   debtorType?: string,
+ *   debtorName?: string,
+ *   debtorStreet?: string,
+ *   debtorBuilding?: string,
+ *   debtorPostal?: string,
+ *   debtorCity?: string,
+ *   debtorCountry?: string,
+ *   referenceType?: string,
+ *   reference?: string,
+ *   message?: string,
+ *   billing?: string,
+ *   eol?: "\n" | "\r\n",
+ * } } PayloadOverrides
+ */
 
 export const QR_IBAN = "CH4431999123000889012";
 export const CH_IBAN = "CH9300762011623852957";
 export const SCOR_REF = "RF18539007547034";
 
-export function buildSwissQrPayload(overrides: PayloadOverrides = {}): string {
+/**
+ * Synthetic SIX-style SPC string. Not a live invoice.
+ * @param   { PayloadOverrides } [overrides]
+ * @returns { string }
+ * @pure
+ */
+export function buildSwissQrPayload(overrides = {}) {
   const eol = overrides.eol ?? "\n";
   return [
     "SPC",
@@ -66,6 +74,7 @@ export function buildSwissQrPayload(overrides: PayloadOverrides = {}): string {
   ].join(eol);
 }
 
+/** @returns { string } @pure */
 export const debtorLessPayload = () =>
   buildSwissQrPayload({
     debtorType: "",
@@ -77,6 +86,7 @@ export const debtorLessPayload = () =>
     debtorCountry: "",
   });
 
+/** @returns { string } @pure */
 export const scorPayload = () =>
   buildSwissQrPayload({
     iban: CH_IBAN,
@@ -84,6 +94,7 @@ export const scorPayload = () =>
     reference: SCOR_REF,
   });
 
+/** @returns { string } @pure */
 export const reviewPayload = () =>
   buildSwissQrPayload({
     addressType: "K",

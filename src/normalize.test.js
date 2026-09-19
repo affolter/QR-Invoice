@@ -1,10 +1,17 @@
+/** @import { ParsedAddress } from "./models.js" */
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { certain, missing, type ParsedAddress } from "./models.js";
+import { certain, missing } from "./models.js";
 import { normalizeAddress, normalizeIban, parseStreetLine } from "./normalize.js";
 
-function rawAddress(partial: Partial<Record<keyof ParsedAddress, string>>): ParsedAddress {
-  const value = (text: string | undefined) => (text ? certain(text, "qr") : missing<string>("qr"));
+/**
+ * @param   { Partial<Record<keyof ParsedAddress, string>> } partial
+ * @returns { ParsedAddress }
+ */
+function rawAddress(partial) {
+  /** @param { string | undefined } text */
+  const value = text => (text ? certain(text, "qr") : missing("qr"));
   return {
     name: value(partial.name ?? "Muster AG"),
     street: value(partial.street),
@@ -12,19 +19,21 @@ function rawAddress(partial: Partial<Record<keyof ParsedAddress, string>>): Pars
     postalCode: value(partial.postalCode),
     city: value(partial.city),
     country: value(partial.country ?? "CH"),
-    addressType: certain((partial.addressType ?? "K") as "S" | "K" | "", "qr"),
+    addressType: certain(/** @type { import("./models.js").AddressType } */ (partial.addressType ?? "K"), "qr"),
   };
 }
 
 describe("parseStreetLine (plan fixtures)", () => {
+  /** @type { Array<[string, string, string, boolean]> } */
   const fixtures = [
     ["Musterstrasse 12", "Musterstrasse", "12", false],
     ["Musterstrasse 12a", "Musterstrasse", "12a", false],
-    ["Musterstrasse 12 A", "Musterstrasse", "12A", false],
+    ["Musterstrasse 12 A", "Musterstrasse", "12 A", false],
+    ["Seestrasse 8 B", "Seestrasse", "8 B", false],
     ["Musterstrasse 12-14", "Musterstrasse", "12-14", false],
     ["Rue du Lac 12", "Rue du Lac", "12", false],
     ["Chemin de la Gare 4bis", "Chemin de la Gare", "4bis", false],
-  ] as const;
+  ];
   for (const [input, street, building, ambiguous] of fixtures) {
     it(input, () => {
       const parsed = parseStreetLine(input);

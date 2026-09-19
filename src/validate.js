@@ -1,34 +1,69 @@
-import type { InvoiceData, Party } from "./models.js";
+/** @import { InvoiceData, Party } from "./models.js" */
 
-export type Issue = { severity: "error" | "warning"; code: string; field: string; message: string };
-export type ValidationResult = { valid: boolean; issues: Issue[] };
+/**
+ * @typedef { "error" | "warning" } Severity
+ * @typedef { { severity: Severity, code: string, field: string, message: string } } Issue
+ * @typedef { { valid: boolean, issues: Issue[] } } ValidationResult
+ */
 
-function mod10(digits: string): number {
+/**
+ * @param   { string } digits
+ * @returns { number }
+ * @pure
+ */
+function mod10(digits) {
   const table = [0, 9, 4, 6, 8, 2, 7, 1, 3, 5];
   let carry = 0;
   for (const char of digits) carry = table[(carry + Number(char)) % 10] ?? 0;
   return (10 - carry) % 10;
 }
 
-export function mod97Ok(compact: string): boolean {
+/**
+ * @param   { string } compact
+ * @returns { boolean }
+ * @pure
+ */
+export function mod97Ok(compact) {
   const rearranged = compact.slice(4) + compact.slice(0, 4);
-  const numeric = rearranged.replace(/[A-Z]/g, (ch) => String(ch.charCodeAt(0) - 55));
+  const numeric = rearranged.replace(/[A-Z]/g, ch => String(ch.charCodeAt(0) - 55));
   let remainder = 0;
   for (const char of numeric) remainder = (remainder * 10 + Number(char)) % 97;
   return remainder === 1;
 }
 
-function issue(severity: Issue["severity"], code: string, field: string, message: string): Issue {
+/**
+ * @param   { Severity } severity
+ * @param   { string }   code
+ * @param   { string }   field
+ * @param   { string }   message
+ * @returns { Issue }
+ * @pure
+ */
+function issue(severity, code, field, message) {
   return { severity, code, field, message };
 }
 
-function addressIssues(prefix: string, party: Party): Issue[] {
-  const issues: Issue[] = [];
-  const add = (severity: Issue["severity"], code: string, key: string, message: string) =>
+/**
+ * @param   { string } prefix
+ * @param   { Party }  party
+ * @returns { Issue[] }
+ * @pure
+ */
+function addressIssues(prefix, party) {
+  /** @type { Issue[] } */
+  const issues = [];
+  /**
+   * @param { Severity } severity
+   * @param { string }   code
+   * @param { string }   key
+   * @param { string }   message
+   */
+  const add = (severity, code, key, message) =>
     issues.push(issue(severity, code, `${prefix}.${key}`, message));
   if (!party.name || party.name.length > 70) add("error", "address.name", "name", "Name is required and must be at most 70 characters.");
   if (!party.country || !/^[A-Z]{2}$/.test(party.country)) add("error", "address.country", "country", "Country must be an ISO 3166-1 alpha-2 code.");
-  const max: Array<[keyof Party, number]> = [
+  /** @type { Array<[keyof Party, number]> } */
+  const max = [
     ["street", 70],
     ["buildingNumber", 16],
     ["postalCode", 16],
@@ -46,11 +81,18 @@ function addressIssues(prefix: string, party: Party): Issue[] {
   return issues;
 }
 
-export function validateInvoice(invoice: InvoiceData | null): ValidationResult {
+/**
+ * SIX QR-bill rules. Does not rewrite IBAN, amount, currency, or reference.
+ * @param   { InvoiceData | null } invoice
+ * @returns { ValidationResult }
+ * @pure
+ */
+export function validateInvoice(invoice) {
   if (!invoice) {
     return { valid: false, issues: [issue("error", "invoice.missing", "invoice", "Invoice could not be built from the QR payload.")] };
   }
-  const issues: Issue[] = [];
+  /** @type { Issue[] } */
+  const issues = [];
   const iban = invoice.account.replace(/\s+/g, "").toUpperCase();
   const unchanged = "The value was not changed.";
   if (!/^(CH|LI)[A-Z0-9]{19}$/.test(iban)) {
@@ -79,8 +121,8 @@ export function validateInvoice(invoice: InvoiceData | null): ValidationResult {
   if (refType !== "QRR" && refType !== "SCOR" && refType !== "NON") {
     issues.push(issue("error", "reference.type", "referenceType", "Reference type must be QRR, SCOR, or NON."));
   }
-  if (qrIban && refType !== "QRR") issues.push(issue("error", "reference.qr-iban", "referenceType", `A QR-IBAN requires reference type QRR. Values were not changed.`));
-  if (!qrIban && refType === "QRR") issues.push(issue("error", "reference.qrr-iban", "referenceType", `QRR is only valid with a QR-IBAN. Values were not changed.`));
+  if (qrIban && refType !== "QRR") issues.push(issue("error", "reference.qr-iban", "referenceType", "A QR-IBAN requires reference type QRR. Values were not changed."));
+  if (!qrIban && refType === "QRR") issues.push(issue("error", "reference.qrr-iban", "referenceType", "QRR is only valid with a QR-IBAN. Values were not changed."));
   if (refType === "QRR") {
     if (!/^\d{27}$/.test(reference)) issues.push(issue("error", "reference.qrr.format", "reference", `QR reference must be exactly 27 digits. ${unchanged}`));
     else if (mod10(reference.slice(0, 26)) !== Number(reference[26])) {
@@ -103,5 +145,5 @@ export function validateInvoice(invoice: InvoiceData | null): ValidationResult {
   if (invoice.creditor.account !== invoice.account) {
     issues.push(issue("error", "iban.mismatch", "account", "Creditor account and invoice account must be identical."));
   }
-  return { valid: issues.every((item) => item.severity !== "error"), issues };
+  return { valid: issues.every(item => item.severity !== "error"), issues };
 }

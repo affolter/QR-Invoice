@@ -1,48 +1,64 @@
+/** @import { InvoiceData, ParsedInvoice, ReviewField } from "./models.js" */
+/** @import { EitherType } from "./either.js" */
+/** @import { ValidationResult } from "./validate.js" */
+
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { left, right, type Either } from "./either.js";
-import type { InvoiceData, ParsedInvoice, ReviewField } from "./models.js";
+import { left, right } from "./either.js";
 import { extractSwissQrPayload, parseQrPayload } from "./parse.js";
 import { normalizeInvoice } from "./normalize.js";
-import { validateInvoice, type ValidationResult } from "./validate.js";
+import { validateInvoice } from "./validate.js";
 import { buildQrPayload } from "./build.js";
 
-export type ConversionResult = {
-  rawQr: string;
-  parsed: ParsedInvoice;
-  invoice: InvoiceData | null;
-  review: ReviewField[];
-  validation: ValidationResult;
-  outputPath?: string;
-};
+/**
+ * @typedef { {
+ *   rawQr: string,
+ *   parsed: ParsedInvoice,
+ *   invoice: InvoiceData | null,
+ *   review: ReviewField[],
+ *   validation: ValidationResult,
+ *   outputPath?: string,
+ * } } ConversionResult
+ *
+ * @typedef { {
+ *   outputPath: string,
+ *   acceptReview?: boolean,
+ *   strict?: boolean,
+ * } } ConvertOptions
+ */
 
-export type ConvertOptions = {
-  outputPath: string;
-  acceptReview?: boolean;
-  strict?: boolean;
-};
-
-export function canWrite(
-  result: Pick<ConversionResult, "validation" | "review" | "invoice">,
-  options: Pick<ConvertOptions, "acceptReview" | "strict">,
-): Either<string, InvoiceData> {
+/**
+ * Single write policy for CLI and pipeline.
+ * @param   { Pick<ConversionResult, "validation" | "review" | "invoice"> } result
+ * @param   { Pick<ConvertOptions, "acceptReview" | "strict"> }             options
+ * @returns { EitherType<string, InvoiceData> }
+ * @pure
+ */
+export function canWrite(result, options) {
   if (!result.invoice || !result.validation.valid) {
     return left("Generation blocked by validation errors. IBAN, amount, currency and reference were not modified.");
   }
   if (result.review.length > 0 && !options.acceptReview) {
     return left("Generation blocked until ambiguous address fields are reviewed. Re-run with --accept-review only if you accept the inferred values.");
   }
-  if (options.strict && result.validation.issues.some((issue) => issue.severity === "warning")) {
+  if (options.strict && result.validation.issues.some(issue => issue.severity === "warning")) {
     return left("Generation blocked by --strict (warnings present).");
   }
   return right(result.invoice);
 }
 
-export async function convertQrPayload(rawQr: string, options: ConvertOptions): Promise<Either<string, ConversionResult>> {
+/**
+ * Left = parse/IO failure. Right may still have no outputPath when canWrite blocks.
+ * @param   { string }         rawQr
+ * @param   { ConvertOptions } options
+ * @returns { Promise<EitherType<string, ConversionResult>> }
+ */
+export async function convertQrPayload(rawQr, options) {
   const parsed = parseQrPayload(rawQr);
   if (!parsed.ok) return parsed;
   const normalized = normalizeInvoice(parsed.value);
-  const result: ConversionResult = {
+  /** @type { ConversionResult } */
+  const result = {
     rawQr,
     parsed: normalized.parsed,
     invoice: normalized.invoice,
@@ -61,8 +77,13 @@ export async function convertQrPayload(rawQr: string, options: ConvertOptions): 
   return right(result);
 }
 
-export async function convertInvoiceFile(inputPath: string, options: ConvertOptions): Promise<Either<string, ConversionResult>> {
-  let text: string;
+/**
+ * @param   { string }         inputPath
+ * @param   { ConvertOptions } options
+ * @returns { Promise<EitherType<string, ConversionResult>> }
+ */
+export async function convertInvoiceFile(inputPath, options) {
+  let text;
   try {
     text = await readFile(inputPath, "utf8");
   } catch (error) {

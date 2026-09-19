@@ -7,7 +7,8 @@ import { parseQrPayload } from "./parse.js";
 import { validateInvoice } from "./validate.js";
 
 describe("validateInvoice", () => {
-  function invoiceFrom(overrides: Parameters<typeof buildSwissQrPayload>[0] = {}) {
+  /** @param { import("./fixtures.js").PayloadOverrides } [overrides] */
+  function invoiceFrom(overrides = {}) {
     return normalizeInvoice(unwrap(parseQrPayload(buildSwissQrPayload(overrides))));
   }
 
@@ -20,7 +21,7 @@ describe("validateInvoice", () => {
     const iban = invoice?.account;
     const result = validateInvoice(invoice);
     assert.equal(result.valid, false);
-    assert.ok(result.issues.some((issue) => issue.code === "reference.qr-iban"));
+    assert.ok(result.issues.some(issue => issue.code === "reference.qr-iban"));
     assert.equal(invoice?.account, iban);
   });
 
@@ -29,7 +30,7 @@ describe("validateInvoice", () => {
     const reference = invoice?.reference;
     const result = validateInvoice(invoice);
     assert.equal(result.valid, false);
-    assert.ok(result.issues.some((issue) => issue.code === "reference.qrr.checksum"));
+    assert.ok(result.issues.some(issue => issue.code === "reference.qrr.checksum"));
     assert.equal(invoice?.reference, reference);
   });
 
@@ -38,7 +39,7 @@ describe("validateInvoice", () => {
     assert.equal(invoice?.currency, "USD");
     const result = validateInvoice(invoice);
     assert.equal(result.valid, false);
-    assert.ok(result.issues.some((issue) => issue.field === "currency"));
+    assert.ok(result.issues.some(issue => issue.field === "currency"));
   });
 
   it("warns on an open amount instead of filling one in", () => {
@@ -46,7 +47,7 @@ describe("validateInvoice", () => {
     assert.equal(invoice?.amount, undefined);
     const result = validateInvoice(invoice);
     assert.equal(result.valid, true);
-    assert.ok(result.issues.some((issue) => issue.code === "amount.empty"));
+    assert.ok(result.issues.some(issue => issue.code === "amount.empty"));
   });
 
   it("accepts a non-QR CH-IBAN with a SCOR reference and does not rewrite either", () => {

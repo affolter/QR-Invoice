@@ -1,12 +1,24 @@
-import type { InvoiceData, Party } from "./models.js";
+/** @import { InvoiceData, Party } from "./models.js" */
 
-const empty = (value: string | undefined) => value ?? "";
+/** @param { string | undefined } value @returns { string } @pure */
+const empty = value => value ?? "";
 
-function addressFields(party: Party): string[] {
+/**
+ * @param   { Party } party
+ * @returns { string[] }
+ * @pure
+ */
+function addressFields(party) {
   return ["S", party.name, empty(party.street), empty(party.buildingNumber), empty(party.postalCode), empty(party.city), party.country];
 }
 
-export function buildQrPayload(invoice: InvoiceData): string {
+/**
+ * Swiss QR-bill SPC payload (IG master version 02). No third-party library.
+ * @param   { InvoiceData } invoice
+ * @returns { string }
+ * @pure
+ */
+export function buildQrPayload(invoice) {
   const fields = [
     "SPC",
     invoice.qrVersion || "0200",

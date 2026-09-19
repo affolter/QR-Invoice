@@ -1,14 +1,26 @@
-import { andThen, left, right, type Either } from "./either.js";
-import type { AddressType, ParsedAddress, ParsedField, ParsedInvoice } from "./models.js";
+/** @import { AddressType, ParsedAddress, ParsedField, ParsedInvoice } from "./models.js" */
+/** @import { EitherType } from "./either.js" */
+
+import { andThen, left, right } from "./either.js";
 import { certain, field, fromLine, missing } from "./models.js";
 
 const MIN = 31;
 
-function splitSpcLines(raw: string): string[] {
+/**
+ * @param   { string } raw
+ * @returns { string[] }
+ * @pure
+ */
+function splitSpcLines(raw) {
   return raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n+$/, "").split("\n");
 }
 
-function takeSpcFields(lines: string[]): Either<string, string[]> {
+/**
+ * @param   { string[] } lines
+ * @returns { EitherType<string, string[]> }
+ * @pure
+ */
+function takeSpcFields(lines) {
   if (lines.length < MIN) return left(`QR payload has ${lines.length} fields; Swiss QR-bill requires at least ${MIN}`);
   if (lines[30] !== "EPD") return left(`Trailer must be EPD, got ${JSON.stringify(lines[30])}`);
   let end = MIN;
@@ -16,20 +28,38 @@ function takeSpcFields(lines: string[]): Either<string, string[]> {
   return right(lines.slice(0, end));
 }
 
-export function extractSwissQrPayload(raw: string): Either<string, string> {
+/**
+ * Pull SPC…EPD out of a UTF-8 text file. Does not decode QR images.
+ * @param   { string } raw
+ * @returns { EitherType<string, string> }
+ * @pure
+ */
+export function extractSwissQrPayload(raw) {
   const text = raw.replace(/^\uFEFF/, "");
   const start = text.search(/SPC\r?\n/);
   if (start < 0) return left("No Swiss QR payload (SPC … EPD) found. Pass a .txt/.spc payload file.");
-  return andThen(takeSpcFields(splitSpcLines(text.slice(start))), (lines) => right(lines.join("\n")));
+  return andThen(takeSpcFields(splitSpcLines(text.slice(start))), lines => right(lines.join("\n")));
 }
 
-function parseAddressType(lines: string[], index: number): ParsedField<AddressType> {
+/**
+ * @param   { string[] } lines
+ * @param   { number }   index
+ * @returns { ParsedField<AddressType> }
+ * @pure
+ */
+function parseAddressType(lines, index) {
   const value = lines[index] ?? "";
   if (value === "S" || value === "K") return certain(value);
   return missing();
 }
 
-function parseAddress(lines: string[], start: number): ParsedAddress {
+/**
+ * @param   { string[] } lines
+ * @param   { number }   start
+ * @returns { ParsedAddress }
+ * @pure
+ */
+function parseAddress(lines, start) {
   return {
     addressType: parseAddressType(lines, start),
     name: fromLine(lines, start + 1),
@@ -41,9 +71,15 @@ function parseAddress(lines: string[], start: number): ParsedAddress {
   };
 }
 
-export function parseQrPayload(raw: string): Either<string, ParsedInvoice> {
+/**
+ * Parse a Swiss QR-bill payload (SIX IG master version 02). Combined address type K is kept as-is.
+ * @param   { string } raw
+ * @returns { EitherType<string, ParsedInvoice> }
+ * @pure
+ */
+export function parseQrPayload(raw) {
   if (!raw?.trim()) return left("QR payload is empty");
-  return andThen(takeSpcFields(splitSpcLines(raw.replace(/^\uFEFF/, ""))), (lines) => {
+  return andThen(takeSpcFields(splitSpcLines(raw.replace(/^\uFEFF/, ""))), lines => {
     if (lines[0] !== "SPC") return left(`QR type must be SPC, got ${JSON.stringify(lines[0])}`);
     if (lines[2] !== "1") return left(`Coding type must be 1, got ${JSON.stringify(lines[2])}`);
     const creditor = parseAddress(lines, 4);
@@ -55,10 +91,10 @@ export function parseQrPayload(raw: string): Either<string, ParsedInvoice> {
       coding: fromLine(lines, 2),
       account: fromLine(lines, 3),
       amount: !amountRaw
-        ? missing<number>()
+        ? /** @type { import("./models.js").ParsedField<number> } */ (missing())
         : /^\d{1,9}(\.\d{2})?$/.test(amountRaw)
           ? certain(Number(amountRaw))
-          : field<number>(null, 0, "qr"),
+          : field(/** @type { number | null } */ (null), 0, "qr"),
       currency: fromLine(lines, 19),
       referenceType: fromLine(lines, 27),
       reference: fromLine(lines, 28),
@@ -68,7 +104,7 @@ export function parseQrPayload(raw: string): Either<string, ParsedInvoice> {
       av2: fromLine(lines, 33),
       trailer: fromLine(lines, 30),
       creditor,
-      debtor: Object.values(debtor).some((item) => item.value) ? debtor : null,
+      debtor: Object.values(debtor).some(item => item.value) ? debtor : null,
     });
   });
 }

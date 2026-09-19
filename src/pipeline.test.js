@@ -10,7 +10,8 @@ import { parseQrPayload } from "./parse.js";
 import { canWrite, convertInvoiceFile, convertQrPayload } from "./pipeline.js";
 import { validateInvoice } from "./validate.js";
 
-function prepared(raw: string) {
+/** @param { string } raw */
+function prepared(raw) {
   const normalized = normalizeInvoice(unwrap(parseQrPayload(raw)));
   return {
     invoice: normalized.invoice,
@@ -51,7 +52,7 @@ describe("convertQrPayload", () => {
     const outputPath = join(await mkdtemp(join(tmpdir(), "qr-invoice-strict-")), "new-payload.txt");
     const result = unwrap(await convertQrPayload(buildSwissQrPayload({ amount: "" }), { outputPath, strict: true }));
     assert.equal(result.validation.valid, true);
-    assert.ok(result.validation.issues.some((issue) => issue.severity === "warning"));
+    assert.ok(result.validation.issues.some(issue => issue.severity === "warning"));
     assert.equal(result.outputPath, undefined);
     assert.equal(canWrite(result, { strict: true }).ok, false);
   });

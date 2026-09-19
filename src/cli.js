@@ -1,12 +1,16 @@
 #!/usr/bin/env node
+/** @import { EitherType } from "./either.js" */
+/** @import { ConvertOptions } from "./pipeline.js" */
+
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { left, right, type Either } from "./either.js";
-import { canWrite, convertInvoiceFile, type ConvertOptions } from "./pipeline.js";
+import { left, right } from "./either.js";
+import { canWrite, convertInvoiceFile } from "./pipeline.js";
 
-export type CliArgs = ConvertOptions & { input: string };
+/** @typedef { ConvertOptions & { input: string } } CliArgs */
 
-function helpText(): string {
+/** @returns { string } @pure */
+function helpText() {
   return `invoice-converter <old-payload.txt> --output <new-payload.txt>
 
   --accept-review   write even if address fields need review
@@ -14,12 +18,17 @@ function helpText(): string {
 `;
 }
 
-export function parseArgs(argv: string[]): Either<string, CliArgs | "help"> {
+/**
+ * @param   { string[] } argv
+ * @returns { EitherType<string, CliArgs | "help"> }
+ * @pure
+ */
+export function parseArgs(argv) {
   const args = argv.slice(2);
   if (args.includes("--help") || args.includes("-h")) return right("help");
   if (args.length === 0) return left(helpText().trimEnd());
-  let input: string | undefined;
-  let output: string | undefined;
+  let input;
+  let output;
   let acceptReview = false;
   let strict = false;
   for (let i = 0; i < args.length; i += 1) {
@@ -36,7 +45,11 @@ export function parseArgs(argv: string[]): Either<string, CliArgs | "help"> {
   return right({ input: resolve(input), outputPath: resolve(output), acceptReview, strict });
 }
 
-export async function runCli(argv: string[]): Promise<number> {
+/**
+ * @param   { string[] } argv
+ * @returns { Promise<number> }
+ */
+export async function runCli(argv) {
   const parsed = parseArgs(argv);
   if (!parsed.ok) {
     console.error(parsed.error);
