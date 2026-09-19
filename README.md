@@ -16,4 +16,18 @@ npm test
 
 `--accept-review` writes despite low-confidence addresses. `--strict` treats warnings as fatal. IBAN, amount, currency, and reference are never rewritten.
 
-PDF support needs Node 20+ (`pdfjs-dist`). A PDF that has no embedded QR image (scan-only page without an image XObject) cannot be decoded yet.
+A future webpage should call the in-memory backend — no HTTP server in this package:
+
+```js
+import { convert } from "qr-invoice";
+
+const input = new Uint8Array(await file.arrayBuffer());
+const out = await convert(input, { acceptReview: true, output: "auto" });
+if (!out.ok) throw new Error(out.error);
+if (!out.value.bytes) throw new Error("blocked until review / validation");
+const blob = new Blob([out.value.bytes], { type: out.value.mediaType });
+```
+
+`output: "auto"` restamps a PDF when the input is a PDF, otherwise writes SPC text. Use `"pdf"` or `"spc"` to force a format.
+
+PDF read needs Node 20+ (`pdfjs-dist`). A scan-only page without an image XObject cannot be decoded yet.

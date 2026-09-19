@@ -1,93 +1,30 @@
-/** @import { InvoiceData, ParsedInvoice, ReviewField } from "./models.js" */
+/** @import { Converted, ConvertInputOptions } from "./backend.js" */
 /** @import { EitherType } from "./either.js" */
-/** @import { ValidationResult } from "./validate.js" */
-/** @import { QrBox } from "./pdfQr.js" */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { left, right } from "./either.js";
-import { extractSwissQrPayload, parseQrPayload } from "./parse.js";
-import { normalizeInvoice } from "./normalize.js";
-import { validateInvoice } from "./validate.js";
-import { buildQrPayload } from "./build.js";
-import { extractSwissQrFromPdf, isPdf } from "./pdfQr.js";
-import { buildInvoicePdf } from "./pdfWrite.js";
+import { canWrite, convert } from "./backend.js";
+
+export { canWrite, convert };
 
 /**
- * @typedef { {
- *   rawQr: string,
- *   parsed: ParsedInvoice,
- *   invoice: InvoiceData | null,
- *   review: ReviewField[],
- *   validation: ValidationResult,
- *   outputPath?: string,
- * } } ConversionResult
- *
- * @typedef { {
- *   outputPath: string,
- *   acceptReview?: boolean,
- *   strict?: boolean,
- *   originalPdf?: Uint8Array,
- *   qrBox?: QrBox,
- * } } ConvertOptions
+ * @typedef { Converted & { outputPath?: string } } ConversionResult
+ * @typedef { ConvertInputOptions & { outputPath: string } } ConvertOptions
  */
 
 /**
- * Single write policy for CLI and pipeline.
- * @param   { Pick<ConversionResult, "validation" | "review" | "invoice"> } result
- * @param   { Pick<ConvertOptions, "acceptReview" | "strict"> }             options
- * @returns { EitherType<string, InvoiceData> }
- * @pure
- */
-export function canWrite(result, options) {
-  if (!result.invoice || !result.validation.valid) {
-    return left("Generation blocked by validation errors. IBAN, amount, currency and reference were not modified.");
-  }
-  if (result.review.length > 0 && !options.acceptReview) {
-    return left("Generation blocked until ambiguous address fields are reviewed. Re-run with --accept-review only if you accept the inferred values.");
-  }
-  if (options.strict && result.validation.issues.some(issue => issue.severity === "warning")) {
-    return left("Generation blocked by --strict (warnings present).");
-  }
-  return right(result.invoice);
-}
-
-/**
- * Left = parse/IO failure. Right may still have no outputPath when canWrite blocks.
  * @param   { string }         rawQr
  * @param   { ConvertOptions } options
  * @returns { Promise<EitherType<string, ConversionResult>> }
  */
 export async function convertQrPayload(rawQr, options) {
-  const parsed = parseQrPayload(rawQr);
-  if (!parsed.ok) return parsed;
-  const normalized = normalizeInvoice(parsed.value);
-  /** @type { ConversionResult } */
-  const result = {
-    rawQr,
-    parsed: normalized.parsed,
-    invoice: normalized.invoice,
-    review: normalized.review,
-    validation: validateInvoice(normalized.invoice),
-  };
-  const gate = canWrite(result, options);
-  if (!gate.ok) return right(result);
-  try {
-    await mkdir(dirname(options.outputPath), { recursive: true });
-    if (options.outputPath.toLowerCase().endsWith(".pdf")) {
-      const pdf = await buildInvoicePdf(gate.value, {
-        originalPdf: options.originalPdf,
-        qrBox: options.qrBox,
-      });
-      await writeFile(options.outputPath, pdf);
-    } else {
-      await writeFile(options.outputPath, buildQrPayload(gate.value), "utf8");
-    }
-  } catch (error) {
-    return left(error instanceof Error ? error.message : String(error));
-  }
-  result.outputPath = options.outputPath;
-  return right(result);
+  const converted = await convert(rawQr, {
+    acceptReview: options.acceptReview,
+    strict: options.strict,
+    output: options.outputPath.toLowerCase().endsWith(".pdf") ? "pdf" : "spc",
+  });
+  return finish(converted, options.outputPath);
 }
 
 /**
@@ -102,16 +39,29 @@ export async function convertInvoiceFile(inputPath, options) {
   } catch (error) {
     return left(error instanceof Error ? error.message : String(error));
   }
-  if (isPdf(bytes)) {
-    const qr = await extractSwissQrFromPdf(bytes);
-    if (!qr.ok) return qr;
-    return convertQrPayload(qr.value.payload, {
-      ...options,
-      originalPdf: bytes,
-      qrBox: qr.value.box,
-    });
+  const converted = await convert(bytes, {
+    acceptReview: options.acceptReview,
+    strict: options.strict,
+    output: options.outputPath.toLowerCase().endsWith(".pdf") ? "pdf" : "spc",
+  });
+  return finish(converted, options.outputPath);
+}
+
+/**
+ * @param { EitherType<string, Converted> } converted
+ * @param { string } outputPath
+ * @returns { Promise<EitherType<string, ConversionResult>> }
+ */
+async function finish(converted, outputPath) {
+  if (!converted.ok) return converted;
+  const result = /** @type { ConversionResult } */ ({ ...converted.value });
+  if (!result.bytes) return right(result);
+  try {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, result.bytes);
+  } catch (error) {
+    return left(error instanceof Error ? error.message : String(error));
   }
-  const extracted = extractSwissQrPayload(new TextDecoder().decode(bytes));
-  if (!extracted.ok) return extracted;
-  return convertQrPayload(extracted.value, options);
+  result.outputPath = outputPath;
+  return right(result);
 }

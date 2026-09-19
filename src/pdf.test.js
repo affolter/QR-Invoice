@@ -19,7 +19,7 @@ const fixture = join(dirname(fileURLToPath(import.meta.url)), "..", "fixtures", 
 async function invoicePdfWithQr(payload) {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595.28, 841.89]);
-  const png = await swissQrPng(payload, 256);
+  const png = swissQrPng(payload, 256);
   const image = await pdf.embedPng(png);
   page.drawImage(image, { x: 190.92, y: 120, width: 128.4, height: 128.4 });
   return pdf.save();

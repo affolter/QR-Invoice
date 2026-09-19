@@ -1,6 +1,9 @@
 declare module "qrcode" {
   const QRCode: {
-    toBuffer: (text: string, options?: Record<string, unknown>) => Promise<Buffer>;
+    create: (
+      text: string,
+      options?: { errorCorrectionLevel?: string },
+    ) => { modules: { size: number; get: (x: number, y: number) => boolean } };
   };
   export default QRCode;
 }

@@ -1,49 +1,68 @@
 /** @import { InvoiceData } from "./models.js" */
 /** @import { QrBox } from "./pdfQr.js" */
 
-import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import QRCode from "qrcode";
 import { buildQrPayload } from "./build.js";
+import { encodePng } from "./png.js";
 
 /**
- * Official Swiss-cross cutout (7 mm on a 46 mm QR, flag proportions 32×32).
- * @param { import("@napi-rs/canvas").SKRSContext2D } ctx
+ * @param { Uint8ClampedArray } data
  * @param { number } size
  */
-function stampSwissCross(ctx, size) {
-  const square = size * (7 / 46);
-  const origin = (size - square) / 2;
+function stampSwissCross(data, size) {
+  const square = Math.round(size * (7 / 46));
+  const origin = Math.round((size - square) / 2);
   const u = square / 32;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(origin, origin, square, square);
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = Math.max(1, size * 0.004);
-  ctx.strokeRect(origin, origin, square, square);
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(origin + 13 * u, origin + 6 * u, 6 * u, 20 * u);
-  ctx.fillRect(origin + 6 * u, origin + 13 * u, 20 * u, 6 * u);
+  /** @param { number } x @param { number } y @param { number } w @param { number } h @param { number } r @param { number } g @param { number } b */
+  const fill = (x, y, w, h, r, g, b) => {
+    const x0 = Math.max(0, Math.floor(x));
+    const y0 = Math.max(0, Math.floor(y));
+    const x1 = Math.min(size, Math.ceil(x + w));
+    const y1 = Math.min(size, Math.ceil(y + h));
+    for (let yy = y0; yy < y1; yy += 1) {
+      for (let xx = x0; xx < x1; xx += 1) {
+        const i = (yy * size + xx) * 4;
+        data[i] = r;
+        data[i + 1] = g;
+        data[i + 2] = b;
+        data[i + 3] = 255;
+      }
+    }
+  };
+  fill(origin, origin, square, square, 255, 255, 255);
+  fill(origin + 13 * u, origin + 6 * u, 6 * u, 20 * u, 0, 0, 0);
+  fill(origin + 6 * u, origin + 13 * u, 20 * u, 6 * u, 0, 0, 0);
 }
 
 /**
  * @param { string } payload
  * @param { number } [px=512]
- * @returns { Promise<Uint8Array> }
+ * @returns { Uint8Array }
  */
-export async function swissQrPng(payload, px = 512) {
-  const png = await QRCode.toBuffer(payload, {
-    errorCorrectionLevel: "M",
-    margin: 0,
-    width: px,
-    type: "png",
-    color: { dark: "#000000", light: "#ffffff" },
-  });
-  const image = await loadImage(png);
-  const canvas = createCanvas(px, px);
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(image, 0, 0, px, px);
-  stampSwissCross(ctx, px);
-  return new Uint8Array(canvas.toBuffer("image/png"));
+export function swissQrPng(payload, px = 512) {
+  const qr = QRCode.create(payload, { errorCorrectionLevel: "M" });
+  const n = qr.modules.size;
+  const scale = Math.max(1, Math.floor(px / n));
+  const size = n * scale;
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < n; y += 1) {
+    for (let x = 0; x < n; x += 1) {
+      const dark = qr.modules.get(x, y);
+      const tone = dark ? 0 : 255;
+      for (let dy = 0; dy < scale; dy += 1) {
+        for (let dx = 0; dx < scale; dx += 1) {
+          const i = ((y * scale + dy) * size + (x * scale + dx)) * 4;
+          data[i] = tone;
+          data[i + 1] = tone;
+          data[i + 2] = tone;
+          data[i + 3] = 255;
+        }
+      }
+    }
+  }
+  stampSwissCross(data, size);
+  return encodePng(data, size, size);
 }
 
 /**
@@ -53,7 +72,7 @@ export async function swissQrPng(payload, px = 512) {
  */
 export async function buildInvoicePdf(invoice, options = {}) {
   const payload = buildQrPayload(invoice);
-  const qrBytes = await swissQrPng(payload);
+  const qrBytes = swissQrPng(payload);
   if (options.originalPdf && options.qrBox) {
     const pdf = await PDFDocument.load(options.originalPdf.slice());
     const page = pdf.getPage(options.qrBox.pageIndex);
