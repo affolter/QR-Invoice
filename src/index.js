@@ -3,3 +3,5 @@ export { normalizeAddress, normalizeInvoice, parseStreetLine } from "./normalize
 export { validateInvoice } from "./validate.js";
 export { buildQrPayload } from "./build.js";
 export { canWrite, convertInvoiceFile, convertQrPayload } from "./pipeline.js";
+export { extractSwissQrFromPdf, isPdf } from "./pdfQr.js";
+export { buildInvoicePdf, swissQrPng } from "./pdfWrite.js";

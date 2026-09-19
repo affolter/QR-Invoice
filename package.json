@@ -1,7 +1,7 @@
 {
   "name": "qr-invoice",
   "version": "0.1.1",
-  "description": "Local CLI that normalizes Swiss Payments Code (SPC) text. Not a PDF or image reader.",
+  "description": "Local CLI that normalizes a Swiss QR-bill. Accepts SPC text or a PDF with an embedded QR image.",
   "type": "module",
   "license": "Apache-2.0",
   "bin": {
@@ -21,10 +21,17 @@
     "typecheck": "tsc -p jsconfig.json --noEmit"
   },
   "engines": {
-    "node": ">=18.18.0"
+    "node": ">=20.19.0"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.9",
+    "jsqr": "^1.4.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.6.205",
+    "qrcode": "^1.5.4"
   }
 }

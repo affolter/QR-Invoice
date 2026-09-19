@@ -1,6 +1,7 @@
 /** @import { InvoiceData, ParsedInvoice, ReviewField } from "./models.js" */
 /** @import { EitherType } from "./either.js" */
 /** @import { ValidationResult } from "./validate.js" */
+/** @import { QrBox } from "./pdfQr.js" */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -9,6 +10,8 @@ import { extractSwissQrPayload, parseQrPayload } from "./parse.js";
 import { normalizeInvoice } from "./normalize.js";
 import { validateInvoice } from "./validate.js";
 import { buildQrPayload } from "./build.js";
+import { extractSwissQrFromPdf, isPdf } from "./pdfQr.js";
+import { buildInvoicePdf } from "./pdfWrite.js";
 
 /**
  * @typedef { {
@@ -24,6 +27,8 @@ import { buildQrPayload } from "./build.js";
  *   outputPath: string,
  *   acceptReview?: boolean,
  *   strict?: boolean,
+ *   originalPdf?: Uint8Array,
+ *   qrBox?: QrBox,
  * } } ConvertOptions
  */
 
@@ -69,7 +74,15 @@ export async function convertQrPayload(rawQr, options) {
   if (!gate.ok) return right(result);
   try {
     await mkdir(dirname(options.outputPath), { recursive: true });
-    await writeFile(options.outputPath, buildQrPayload(gate.value), "utf8");
+    if (options.outputPath.toLowerCase().endsWith(".pdf")) {
+      const pdf = await buildInvoicePdf(gate.value, {
+        originalPdf: options.originalPdf,
+        qrBox: options.qrBox,
+      });
+      await writeFile(options.outputPath, pdf);
+    } else {
+      await writeFile(options.outputPath, buildQrPayload(gate.value), "utf8");
+    }
   } catch (error) {
     return left(error instanceof Error ? error.message : String(error));
   }
@@ -83,13 +96,22 @@ export async function convertQrPayload(rawQr, options) {
  * @returns { Promise<EitherType<string, ConversionResult>> }
  */
 export async function convertInvoiceFile(inputPath, options) {
-  let text;
+  let bytes;
   try {
-    text = await readFile(inputPath, "utf8");
+    bytes = Uint8Array.from(await readFile(inputPath));
   } catch (error) {
     return left(error instanceof Error ? error.message : String(error));
   }
-  const extracted = extractSwissQrPayload(text);
+  if (isPdf(bytes)) {
+    const qr = await extractSwissQrFromPdf(bytes);
+    if (!qr.ok) return qr;
+    return convertQrPayload(qr.value.payload, {
+      ...options,
+      originalPdf: bytes,
+      qrBox: qr.value.box,
+    });
+  }
+  const extracted = extractSwissQrPayload(new TextDecoder().decode(bytes));
   if (!extracted.ok) return extracted;
   return convertQrPayload(extracted.value, options);
 }

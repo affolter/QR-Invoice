@@ -11,7 +11,11 @@ import { canWrite, convertInvoiceFile } from "./pipeline.js";
 
 /** @returns { string } @pure */
 function helpText() {
-  return `invoice-converter <old-payload.txt> --output <new-payload.txt>
+  return `invoice-converter <old.txt|old.pdf> --output <new.txt|new.pdf>
+
+  PDF in  → reads the Swiss QR image and restamps it on the same invoice page
+  PDF out → writes a PDF (restamped invoice, or a new page if the input was text)
+  TXT out → writes the normalized SPC payload
 
   --accept-review   write even if address fields need review
   --strict          treat warnings as fatal
