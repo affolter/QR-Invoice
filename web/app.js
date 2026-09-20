@@ -1,12 +1,12 @@
-/** @import { Converted } from "@qr-invoice/core" */
-
-import { canWrite, isPdf } from "@qr-invoice/core";
+import { isPdf } from "@qr-invoice/core";
 import { convert } from "@qr-invoice/pdf";
+import { project, setStatus } from "./render.js";
 
 const fileInput = /** @type { HTMLInputElement } */ (document.getElementById("file"));
 const drop = /** @type { HTMLElement } */ (document.getElementById("drop"));
 const statusEl = /** @type { HTMLElement } */ (document.getElementById("status"));
 const panel = /** @type { HTMLElement } */ (document.getElementById("panel"));
+const queueEl = /** @type { HTMLElement } */ (document.getElementById("queue"));
 const summary = /** @type { HTMLElement } */ (document.getElementById("summary"));
 const issuesEl = /** @type { HTMLElement } */ (document.getElementById("issues"));
 const reviewEl = /** @type { HTMLElement } */ (document.getElementById("review"));
@@ -14,109 +14,95 @@ const acceptBtn = /** @type { HTMLButtonElement } */ (document.getElementById("a
 const spcBtn = /** @type { HTMLButtonElement } */ (document.getElementById("spc"));
 const pdfBtn = /** @type { HTMLButtonElement } */ (document.getElementById("pdf"));
 
-/** @type { Uint8Array | undefined } */
-let dropped;
-/** @type { string } */
-let baseName = "qr-invoice";
-/** @type { boolean } */
-let fromPdf = false;
+const dom = {
+  summary,
+  issues: issuesEl,
+  review: reviewEl,
+  acceptBtn,
+  spcBtn,
+  pdfBtn,
+  status: statusEl,
+};
 
 /**
- * @param { "empty" | "loading" | "error" | "ok" } kind
- * @param { string } text
+ * @typedef { { name: string, bytes: Uint8Array, fromPdf: boolean } } Dropped
  */
-function setStatus(kind, text) {
-  statusEl.dataset.kind = kind;
-  statusEl.textContent = text;
+
+/** @type { Dropped[] } */
+let queue = [];
+/** @type { number } */
+let index = 0;
+
+/** @returns { Dropped | undefined } */
+const current = () => queue[index];
+
+/**
+ * @param { FileList | Array<File> } files
+ */
+async function onFiles(files) {
+  panel.hidden = true;
+  setStatus(statusEl, "loading", "Reading files…");
+  queue = [];
+  for (const file of Array.from(files)) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    queue.push({
+      name: file.name.replace(/\.(pdf|txt|spc)$/i, "") || "qr-invoice",
+      bytes,
+      fromPdf: isPdf(bytes) || file.name.toLowerCase().endsWith(".pdf"),
+    });
+  }
+  index = 0;
+  drawQueue();
+  await run(false);
 }
 
-/**
- * @param { File } file
- */
-async function onFile(file) {
-  panel.hidden = true;
-  setStatus("loading", `Reading ${file.name}…`);
-  baseName = file.name.replace(/\.(pdf|txt|spc)$/i, "") || "qr-invoice";
-  dropped = new Uint8Array(await file.arrayBuffer());
-  fromPdf = isPdf(dropped) || file.name.toLowerCase().endsWith(".pdf");
-  await run(false);
+function drawQueue() {
+  queueEl.replaceChildren();
+  queue.forEach((item, i) => {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = i === index ? "queue-current" : "queue-item";
+    btn.textContent = item.name;
+    btn.addEventListener("click", () => {
+      index = i;
+      drawQueue();
+      void run(false);
+    });
+    li.append(btn);
+    queueEl.append(li);
+  });
 }
 
 /**
  * @param { boolean } acceptReview
  */
 async function run(acceptReview) {
-  if (!dropped) return;
-  setStatus("loading", "Converting in the browser…");
-  const output = fromPdf ? "pdf" : "spc";
-  const converted = await convert(dropped, { acceptReview, output });
-  if (!converted.ok) {
-    panel.hidden = true;
-    setStatus("error", converted.error);
+  const item = current();
+  if (!item) {
+    setStatus(statusEl, "empty", "No file yet.");
     return;
   }
-  render(converted.value, acceptReview);
-}
-
-/**
- * @param { Converted } result
- * @param { boolean } acceptReview
- */
-function render(result, acceptReview) {
+  setStatus(statusEl, "loading", `Converting ${item.name} in this tab…`);
+  const converted = await convert(item.bytes, { acceptReview, output: item.fromPdf ? "pdf" : "spc" });
+  if (!converted.ok) {
+    panel.hidden = true;
+    setStatus(statusEl, "error", converted.error);
+    return;
+  }
   panel.hidden = false;
-  const invoice = result.invoice;
-  summary.replaceChildren();
-  addRow("Creditor", invoice?.creditor.name ?? "—");
-  addRow("Street", [invoice?.creditor.street, invoice?.creditor.buildingNumber].filter(Boolean).join(" ") || "—");
-  addRow("IBAN", invoice?.account ?? "—");
-  addRow("Amount", invoice?.amount === undefined ? "open" : `${invoice.amount} ${invoice.currency}`);
-  addRow("Reference", `${invoice?.referenceType ?? ""} ${invoice?.reference ?? ""}`.trim() || "—");
-  addRow("Address type", result.parsed.creditor.addressType.value || "—");
-
-  issuesEl.replaceChildren();
-  for (const issue of result.validation.issues) {
-    const li = document.createElement("li");
-    li.textContent = `${issue.severity}: ${issue.field} — ${issue.message}`;
-    issuesEl.append(li);
-  }
-
-  reviewEl.replaceChildren();
-  for (const item of result.review) {
-    const li = document.createElement("li");
-    li.textContent = `${item.path} = ${JSON.stringify(item.value)} (confidence ${item.confidence})`;
-    reviewEl.append(li);
-  }
-
-  const gate = canWrite(result, { acceptReview });
-  const ready = gate.ok && Boolean(result.bytes);
-  acceptBtn.hidden = result.review.length === 0 || ready;
-  spcBtn.hidden = !ready;
-  pdfBtn.hidden = !ready;
-  if (!gate.ok) setStatus("error", gate.error);
-  else if (!result.bytes) setStatus("error", "No output bytes.");
-  else setStatus("ok", fromPdf ? "Ready. Banks read the restamped QR; printed type K on the page may remain." : "Ready to download.");
-}
-
-/**
- * @param { string } key
- * @param { string } value
- */
-function addRow(key, value) {
-  const dt = document.createElement("dt");
-  dt.textContent = key;
-  const dd = document.createElement("dd");
-  dd.textContent = value;
-  summary.append(dt, dd);
+  project(dom, converted.value, { acceptReview, fromPdf: item.fromPdf });
 }
 
 /**
  * @param { "spc" | "pdf" } kind
  */
 async function download(kind) {
-  if (!dropped) return;
-  const converted = await convert(dropped, { acceptReview: true, output: kind });
+  const item = current();
+  if (!item) return;
+  const converted = await convert(item.bytes, { acceptReview: true, output: kind });
   if (!converted.ok || !converted.value.bytes) {
-    setStatus("error", converted.ok ? "No output bytes." : converted.error);
+    setStatus(statusEl, "error", converted.ok ? "No output bytes." : converted.error);
     return;
   }
   const type = kind === "pdf" ? "application/pdf" : "text/plain;charset=utf-8";
@@ -127,14 +113,13 @@ async function download(kind) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${baseName}-structured.${kind === "pdf" ? "pdf" : "txt"}`;
+  a.download = `${item.name}-structured.${kind === "pdf" ? "pdf" : "txt"}`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 fileInput.addEventListener("change", () => {
-  const file = fileInput.files?.[0];
-  if (file) void onFile(file);
+  if (fileInput.files?.length) void onFiles(fileInput.files);
 });
 
 drop.addEventListener("dragover", event => {
@@ -145,8 +130,8 @@ drop.addEventListener("dragleave", () => drop.classList.remove("over"));
 drop.addEventListener("drop", event => {
   event.preventDefault();
   drop.classList.remove("over");
-  const file = event.dataTransfer?.files?.[0];
-  if (file) void onFile(file);
+  const files = event.dataTransfer?.files;
+  if (files?.length) void onFiles(files);
 });
 
 acceptBtn.addEventListener("click", () => void run(true));

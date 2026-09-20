@@ -16,6 +16,10 @@ export default defineConfig({
     port: 43187,
     strictPort: true,
   },
+  build: {
+    outDir: resolve(root, "dist"),
+    emptyOutDir: true,
+  },
   resolve: {
     alias: {
       "@qr-invoice/core": resolve(root, "packages/core/src/index.js"),

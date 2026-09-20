@@ -62,6 +62,25 @@ h1 {
   clip: rect(0 0 0 0);
 }
 
+.queue {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.queue button {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.queue .queue-current {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .status[data-kind="error"] {
   color: var(--err);
 }
