@@ -89,6 +89,16 @@ h1 {
   color: var(--accent);
 }
 
+.status[data-kind="review"] {
+  color: var(--warn);
+}
+
+#example {
+  background: var(--card);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
 #panel {
   background: var(--card);
   border: 1px solid var(--line);

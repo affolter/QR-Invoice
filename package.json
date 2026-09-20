@@ -24,7 +24,7 @@
     "build": "vite build",
     "api": "node packages/server/src/serve.js",
     "server": "node packages/server/src/serve.js",
-    "test": "tsc -p jsconfig.json --noEmit && node --test packages/core/src/*.test.js packages/pdf/src/*.test.js packages/cli/src/*.test.js packages/server/src/*.test.js",
+    "test": "tsc -p jsconfig.json --noEmit && node --test packages/core/src/*.test.js packages/pdf/src/*.test.js packages/cli/src/*.test.js packages/server/src/*.test.js web/*.test.js",
     "typecheck": "tsc -p jsconfig.json --noEmit"
   },
   "engines": {

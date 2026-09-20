@@ -10,6 +10,42 @@ export { extractSwissQrFromPdf } from "./pdfQr.js";
 export { buildInvoicePdf, swissQrPng } from "./pdfWrite.js";
 
 /**
+ * Emit SPC or PDF bytes from already-reviewed InvoiceData. Re-extracts the QR box if needed.
+ *
+ * @param   { import("@qr-invoice/core").InvoiceData } invoice
+ * @param   { {
+ *   output?: "pdf" | "spc" | "auto",
+ *   originalPdf?: Uint8Array,
+ *   qrBox?: import("./pdfQr.js").QrBox,
+ * } } [options]
+ * @returns { Promise<EitherType<string, { bytes: Uint8Array, mediaType: "application/pdf" | "text/plain;charset=utf-8" }>> }
+ */
+export async function writeInvoice(invoice, options = {}) {
+  try {
+    /** @type { import("./pdfQr.js").QrBox | undefined } */
+    let qrBox = options.qrBox;
+    const originalPdf = options.originalPdf;
+    const wantPdf = options.output === "pdf" || (options.output !== "spc" && Boolean(originalPdf));
+    if (wantPdf && originalPdf && !qrBox) {
+      const qr = await extractSwissQrFromPdf(originalPdf);
+      if (qr.ok) qrBox = qr.value.box;
+    }
+    if (wantPdf) {
+      return right({
+        bytes: await buildInvoicePdf(invoice, { originalPdf, qrBox }),
+        mediaType: "application/pdf",
+      });
+    }
+    return right({
+      bytes: new TextEncoder().encode(buildQrPayload(invoice)),
+      mediaType: "text/plain;charset=utf-8",
+    });
+  } catch (error) {
+    return left(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/**
  * PDF-capable in-memory convert. Loads pdfjs / pdf-lib / jsqr / qrcode.
  *
  * @param   { Uint8Array | ArrayBuffer | string } input
@@ -48,17 +84,9 @@ export async function convert(input, options = {}) {
   const gate = canWrite(result, options);
   if (!gate.ok) return right(result);
 
-  const wantPdf = options.output === "pdf" || (options.output !== "spc" && Boolean(originalPdf));
-  try {
-    if (wantPdf) {
-      result.bytes = await buildInvoicePdf(gate.value, { originalPdf, qrBox });
-      result.mediaType = "application/pdf";
-    } else {
-      result.bytes = new TextEncoder().encode(buildQrPayload(gate.value));
-      result.mediaType = "text/plain;charset=utf-8";
-    }
-  } catch (error) {
-    return left(error instanceof Error ? error.message : String(error));
-  }
+  const written = await writeInvoice(gate.value, { output: options.output, originalPdf, qrBox });
+  if (!written.ok) return written;
+  result.bytes = written.value.bytes;
+  result.mediaType = written.value.mediaType;
   return right(result);
 }

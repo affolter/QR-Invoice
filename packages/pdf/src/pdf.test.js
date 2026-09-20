@@ -5,10 +5,10 @@ import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import jsQR from "jsqr";
-import { isPdf } from "@qr-invoice/core";
+import { applyAddressReview, isPdf } from "@qr-invoice/core";
 import { unwrap } from "../../core/src/either.js";
 import { buildSwissQrPayload } from "../../core/src/fixtures.js";
-import { convert, extractSwissQrFromPdf, swissQrPng } from "./index.js";
+import { convert, extractSwissQrFromPdf, swissQrPng, writeInvoice } from "./index.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const spcFixture = join(root, "fixtures", "spc", "affolter-27338.txt");
@@ -52,6 +52,24 @@ describe("PDF QR restamp", () => {
     assert.ok(result.bytes);
     assert.equal(result.bytes[0], 0x25);
     assert.equal(result.bytes[1], 0x50);
+  });
+
+  it("restamps from patched InvoiceData without rewriting the IBAN", async () => {
+    const source = unwrap(await convert(new Uint8Array(await readFile(pdfFixture)), { output: "pdf" }));
+    assert.ok(source.invoice);
+    const iban = source.invoice.account;
+    const applied = applyAddressReview(source.invoice, {
+      "creditor.street": "Seestrasse",
+      "creditor.buildingNumber": "8 B",
+      account: "CH9300762011623852957",
+    });
+    const written = unwrap(
+      await writeInvoice(applied.invoice, { originalPdf: new Uint8Array(await readFile(pdfFixture)), output: "pdf" }),
+    );
+    const restamped = unwrap(await extractSwissQrFromPdf(written.bytes));
+    assert.match(restamped.payload, /\nSeestrasse\n8 B\n/);
+    assert.match(restamped.payload, new RegExp(`\n${iban}\n`));
+    assert.doesNotMatch(restamped.payload, /CH9300762011623852957/);
   });
 });
 

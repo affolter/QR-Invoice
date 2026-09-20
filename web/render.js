@@ -1,11 +1,11 @@
-/** @import { Converted } from "@qr-invoice/core" */
+/** @import { Converted, Party } from "@qr-invoice/core" */
+/** @import { ObservableType } from "./observable.js" */
 
 import { canWrite } from "@qr-invoice/core";
+import { Observable } from "./observable.js";
 
 /**
- * Projector: Converted → DOM. Financial fields are locked (not editable).
- *
- * @param { {
+ * @typedef { {
  *   summary: HTMLElement,
  *   issues: HTMLElement,
  *   review: HTMLElement,
@@ -13,32 +13,63 @@ import { canWrite } from "@qr-invoice/core";
  *   spcBtn: HTMLButtonElement,
  *   pdfBtn: HTMLButtonElement,
  *   status: HTMLElement,
- * } } dom
+ * } } ReviewDom
+ */
+
+/** @type { Map<string, ObservableType<string>> } */
+const addressFields = new Map();
+
+/**
+ * Address patches from the projector. Financial fields are not in this map.
+ * @returns { Record<string, string> }
+ */
+export function getAddressPatches() {
+  /** @type { Record<string, string> } */
+  const patches = {};
+  for (const [path, obs] of addressFields) patches[path] = obs.getValue();
+  return patches;
+}
+
+/**
+ * Projector: Converted → DOM. Address Observables are editable; money fields stay locked.
+ *
+ * @param { ReviewDom } dom
  * @param { Converted } result
- * @param { { acceptReview: boolean, fromPdf: boolean } } view
+ * @param { { fromPdf: boolean } } view
  */
 export function project(dom, result, view) {
+  addressFields.clear();
   const invoice = result.invoice;
-  const amount = invoice?.amount === undefined ? "open" : String(invoice.amount);
-  const reference = `${invoice?.referenceType ?? ""} ${invoice?.reference ?? ""}`.trim() || "—";
   dom.summary.replaceChildren();
-  row(dom.summary, "Creditor", invoice?.creditor.name ?? "—", false);
-  row(dom.summary, "Street", [invoice?.creditor.street, invoice?.creditor.buildingNumber].filter(Boolean).join(" ") || "—", false);
-  row(dom.summary, "IBAN", invoice?.account ?? "—", true);
-  row(dom.summary, "Amount", amount, true);
-  row(dom.summary, "Currency", invoice?.currency ?? "—", true);
-  row(dom.summary, "Reference", reference, true);
-  row(dom.summary, "Address type", result.parsed.creditor.addressType.value || "—", false);
+
+  if (invoice) {
+    bindParty(dom.summary, "creditor", invoice.creditor);
+    bindLocked(dom.summary, "IBAN", invoice.account);
+    bindLocked(dom.summary, "Amount", invoice.amount === undefined ? "open" : String(invoice.amount));
+    bindLocked(dom.summary, "Currency", invoice.currency);
+    bindLocked(
+      dom.summary,
+      "Reference",
+      `${invoice.referenceType} ${invoice.reference ?? ""}`.trim() || "—",
+    );
+    if (invoice.debtor) bindParty(dom.summary, "debtor", invoice.debtor);
+  } else {
+    bindLocked(dom.summary, "Invoice", "Could not be built");
+  }
 
   list(dom.issues, result.validation.issues.map(issue => `${issue.severity}: ${issue.field} — ${issue.message}`));
   list(dom.review, result.review.map(item => `${item.path} = ${JSON.stringify(item.value)} (confidence ${item.confidence})`));
 
-  const gate = canWrite(result, { acceptReview: view.acceptReview });
+  const gate = canWrite(result, { acceptReview: result.review.length === 0 });
   const ready = gate.ok && Boolean(result.bytes);
-  dom.acceptBtn.hidden = result.review.length === 0 || ready;
+  const needsReview = result.review.length > 0;
+  dom.acceptBtn.hidden = !needsReview;
   dom.spcBtn.hidden = !ready;
   dom.pdfBtn.hidden = !ready;
-  if (!gate.ok) setStatus(dom.status, "error", gate.error);
+
+  if (needsReview) {
+    setStatus(dom.status, "review", "Review the address fields, then accept. IBAN, amount, currency, and reference stay locked.");
+  } else if (!gate.ok) setStatus(dom.status, "error", gate.error);
   else if (!result.bytes) setStatus(dom.status, "error", "No output bytes.");
   else {
     setStatus(
@@ -52,8 +83,44 @@ export function project(dom, result, view) {
 }
 
 /**
+ * @param { HTMLElement } parent
+ * @param { "creditor" | "debtor" } prefix
+ * @param { Party } party
+ */
+function bindParty(parent, prefix, party) {
+  const label = prefix === "creditor" ? "Creditor" : "Debtor";
+  bindAddress(parent, `${label} name`, `${prefix}.name`, party.name);
+  bindAddress(parent, "Street", `${prefix}.street`, party.street ?? "");
+  bindAddress(parent, "Building", `${prefix}.buildingNumber`, party.buildingNumber ?? "");
+  bindAddress(parent, "Postal code", `${prefix}.postalCode`, party.postalCode ?? "");
+  bindAddress(parent, "City", `${prefix}.city`, party.city ?? "");
+  bindAddress(parent, "Country", `${prefix}.country`, party.country);
+}
+
+/**
+ * @param { HTMLElement } parent
+ * @param { string } label
+ * @param { string } path
+ * @param { string } value
+ */
+function bindAddress(parent, label, path, value) {
+  const obs = Observable(value);
+  addressFields.set(path, obs);
+  bindRow(parent, label, obs, { locked: false, path });
+}
+
+/**
+ * @param { HTMLElement } parent
+ * @param { string } label
+ * @param { string } value
+ */
+function bindLocked(parent, label, value) {
+  bindRow(parent, label, Observable(value), { locked: true });
+}
+
+/**
  * @param { HTMLElement } el
- * @param { "empty" | "loading" | "error" | "ok" } kind
+ * @param { "empty" | "loading" | "error" | "ok" | "review" } kind
  * @param { string } text
  */
 export function setStatus(el, kind, text) {
@@ -64,21 +131,26 @@ export function setStatus(el, kind, text) {
 /**
  * @param { HTMLElement } parent
  * @param { string } key
- * @param { string } value
- * @param { boolean } locked
+ * @param { ObservableType<string> } obs
+ * @param { { locked: boolean, path?: string } } options
  */
-function row(parent, key, value, locked) {
+function bindRow(parent, key, obs, options) {
   const dt = document.createElement("dt");
-  dt.textContent = locked ? `${key} (locked)` : key;
+  dt.textContent = options.locked ? `${key} (locked)` : key;
   const dd = document.createElement("dd");
   const input = document.createElement("input");
-  input.value = value;
-  input.readOnly = true;
-  input.tabIndex = -1;
-  if (locked) {
+  if (options.path) input.dataset.path = options.path;
+  if (options.locked) {
+    input.readOnly = true;
+    input.tabIndex = -1;
     input.className = "locked";
     input.setAttribute("aria-readonly", "true");
+  } else {
+    input.addEventListener("input", () => obs.setValue(input.value));
   }
+  obs.onChange(value => {
+    if (input.value !== value) input.value = value;
+  });
   dd.append(input);
   parent.append(dt, dd);
 }

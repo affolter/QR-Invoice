@@ -15,6 +15,14 @@ npm run web
 
 http://127.0.0.1:43187 — drop `fixtures/spc/affolter-27338.txt` or `fixtures/pdf/affolter-27338.pdf`.
 
+## Try the review UI
+
+1. `npm run web` and open http://127.0.0.1:43187
+2. Click **Load example that needs review** (or drop `fixtures/spc/review-needed.txt`)
+3. Street `Route 12 Dorf 8` is editable; IBAN, amount, currency, and reference stay locked
+4. Change the street/building if you want, then **Accept reviewed addresses**
+5. Download SPC or PDF — the file is built from the patched address, not by re-guessing the original payload
+
 ## JSON API (optional)
 
 ```bash

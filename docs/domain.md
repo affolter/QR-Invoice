@@ -18,11 +18,12 @@ Swiss Payments Code (SPC) IG 2.3: 31+ newline fields, `SPC` … `EPD`.
 3. `normalizeInvoice` — `K→S`, street split, IBAN compact  
 4. `validateInvoice` — SIX checks, values unchanged on failure  
 5. `canWrite` — review / strict / errors  
-6. `buildQrPayload` — emit `S`  
-7. `createOutputFilename` — `{stem}-structured.txt|pdf`
+6. `applyAddressReview` — user address patches only; financial paths ignored  
+7. `buildQrPayload` / `writeInvoice` — emit `S` from the patched invoice  
+8. `createOutputFilename` — `{stem}-structured.txt|pdf`
 
 `InvoiceData` is the JSON the optional `POST /api/validate` accepts. The API does not parse SPC or PDF.
 
 ## Review UI
 
-Financial fields (IBAN, amount, currency, reference) are shown locked. The page does not offer editors that could “fix” money fields.
+Financial fields (IBAN, amount, currency, reference) are shown locked. The page does not offer editors that could “fix” money fields. Address cells are Kolibri Observables; Accept calls `applyAddressReview` then `writeInvoice` so edits survive download.

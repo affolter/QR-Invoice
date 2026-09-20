@@ -14,4 +14,5 @@ export { validateInvoice } from "./validate.js";
 export { buildQrPayload } from "./build.js";
 export { createOutputFilename } from "./filename.js";
 export { analyze, canWrite, convert } from "./backend.js";
+export { applyAddressReview, FINANCIAL_PATHS } from "./review.js";
 export { isPdf } from "./pdfMagic.js";

@@ -20,6 +20,9 @@
         <strong>Drop files here</strong>
         <span>or click to choose .txt / .spc / .pdf</span>
       </label>
+      <p>
+        <button id="example" type="button">Load example that needs review</button>
+      </p>
 
       <p id="status" class="status" data-kind="empty">No file yet.</p>
       <p id="api-status" class="status">JSON API: checking… conversion works if it is down.</p>
@@ -31,7 +34,7 @@
         <ul id="issues"></ul>
         <ul id="review"></ul>
         <div class="actions">
-          <button id="accept" type="button" hidden>Accept inferred addresses</button>
+          <button id="accept" type="button" hidden>Accept reviewed addresses</button>
           <button id="spc" type="button" hidden>Download SPC</button>
           <button id="pdf" type="button" hidden>Download PDF</button>
         </div>

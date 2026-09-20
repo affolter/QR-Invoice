@@ -45,3 +45,11 @@
 **Decision:** No LLM, no remote AI API, no generated “repair” of IBAN/amount/reference. Low confidence is review, not autocomplete.
 
 **Consequences:** The optional JSON API only re-runs `validateInvoice`.
+
+## ADR-007 — Address review is a projector, not a second convert
+
+**Context:** Accepting inferred addresses used to re-run `convert(originalBytes, { acceptReview: true })`, which dropped any street edits in the form.
+
+**Decision:** `applyAddressReview(invoice, patches)` copies only `creditor.*` / `debtor.*` address keys. IBAN, amount, currency, reference, and `creditor.account` stay on the source invoice. The webpage binds those address keys to Observables and emits with `writeInvoice`.
+
+**Consequences:** Ambiguous examples (`fixtures/spc/review-needed.txt`) can be corrected in the tab. A patched IBAN in the form is ignored.

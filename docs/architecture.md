@@ -9,7 +9,7 @@ browser
        ├─ @qr-invoice/pdf   (optional adapter, in-tab)
        └─ @qr-invoice/core  parse → normalize → validate → canWrite → build
               │
-              └── download via createOutputFilename
+              └── review projector → applyAddressReview → writeInvoice → createOutputFilename
 
 optional Node  :43188
   GET  /              static dist/
