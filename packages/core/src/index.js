@@ -1,4 +1,5 @@
 /** @typedef { import("./models.js").InvoiceData } InvoiceData */
+/** @typedef { import("./models.js").Party } Party */
 /** @typedef { import("./backend.js").Converted } Converted */
 /** @typedef { import("./backend.js").ConvertInputOptions } ConvertInputOptions */
 /**
