@@ -8,7 +8,7 @@ import { unwrap } from "./either.js";
 import { normalizeInvoice } from "./normalize.js";
 import { parseQrPayload } from "./parse.js";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const fixtureDir = join(root, "fixtures", "spc");
 const sampleDirs = [join(root, "samples"), join(root, "sample")];
 

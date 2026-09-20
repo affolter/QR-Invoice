@@ -3,12 +3,10 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { unwrap } from "./either.js";
-import { buildSwissQrPayload, debtorLessPayload, reviewPayload } from "./fixtures.js";
-import { normalizeInvoice } from "./normalize.js";
-import { parseQrPayload } from "./parse.js";
+import { unwrap } from "../../core/src/either.js";
+import { buildSwissQrPayload, debtorLessPayload, reviewPayload } from "../../core/src/fixtures.js";
+import { normalizeInvoice, parseQrPayload, validateInvoice } from "@qr-invoice/core";
 import { canWrite, convertInvoiceFile, convertQrPayload } from "./pipeline.js";
-import { validateInvoice } from "./validate.js";
 
 /** @param { string } raw */
 function prepared(raw) {
@@ -52,7 +50,7 @@ describe("convertQrPayload", () => {
     const outputPath = join(await mkdtemp(join(tmpdir(), "qr-invoice-strict-")), "new-payload.txt");
     const result = unwrap(await convertQrPayload(buildSwissQrPayload({ amount: "" }), { outputPath, strict: true }));
     assert.equal(result.validation.valid, true);
-    assert.ok(result.validation.issues.some(issue => issue.severity === "warning"));
+    assert.ok(result.validation.issues.some(/** @param { { severity: string } } issue */ issue => issue.severity === "warning"));
     assert.equal(result.outputPath, undefined);
     assert.equal(canWrite(result, { strict: true }).ok, false);
   });

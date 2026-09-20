@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Swiss QR-bill converter</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Swiss QR-bill converter</h1>
+      <p class="lead">
+        Drop an SPC text file or a PDF with an embedded QR image. Conversion runs in this tab.
+        IBAN, amount, currency, and reference are never rewritten.
+      </p>
+
+      <label class="drop" id="drop">
+        <input id="file" type="file" accept=".txt,.spc,.pdf,application/pdf,text/plain" />
+        <strong>Drop a file here</strong>
+        <span>or click to choose .txt / .spc / .pdf</span>
+      </label>
+
+      <p id="status" class="status" data-kind="empty">No file yet.</p>
+
+      <section id="panel" hidden>
+        <h2>Result</h2>
+        <dl id="summary"></dl>
+        <ul id="issues"></ul>
+        <ul id="review"></ul>
+        <div class="actions">
+          <button id="accept" type="button" hidden>Accept inferred addresses and download</button>
+          <button id="spc" type="button" hidden>Download SPC</button>
+          <button id="pdf" type="button" hidden>Download PDF</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

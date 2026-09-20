@@ -1,8 +1,7 @@
-/** @import { EitherType } from "./either.js" */
+/** @import { EitherType } from "@qr-invoice/core" */
 
-import { getDocument, OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 import jsQR from "jsqr";
-import { left, right } from "./either.js";
+import { left, right } from "@qr-invoice/core";
 
 /**
  * @typedef { { x: number, y: number, width: number, height: number, pageIndex: number } } QrBox
@@ -10,16 +9,28 @@ import { left, right } from "./either.js";
  */
 
 /**
- * @param { Uint8Array } bytes
- * @returns { boolean }
- * @pure
+ * @param { Uint8ClampedArray } data
+ * @param { number } width
+ * @param { number } height
+ * @returns { { data: string } | null }
  */
-export function isPdf(bytes) {
-  return bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+function decodeQr(data, width, height) {
+  const decode = typeof jsQR === "function" ? jsQR : /** @type { { default: typeof jsQR } } */ (jsQR).default;
+  return decode(data, width, height);
 }
 
 /**
- * pdf.js reads the underlying ArrayBuffer from index 0. Node Buffers are often a view.
+ * Node uses the pdf.js legacy build; the browser uses the generic build.
+ * @returns { Promise<{ getDocument: typeof import("pdfjs-dist").getDocument, OPS: typeof import("pdfjs-dist").OPS }> }
+ */
+function loadPdfjs() {
+  if (typeof document === "undefined") {
+    return import("pdfjs-dist/legacy/build/pdf.mjs");
+  }
+  return import("pdfjs-dist/build/pdf.mjs");
+}
+
+/**
  * @param { Uint8Array } bytes
  * @returns { Uint8Array }
  * @pure
@@ -89,9 +100,10 @@ function toRgba(img) {
 
 /**
  * @param { import("pdfjs-dist").PDFPageProxy } page
+ * @param { typeof import("pdfjs-dist").OPS } OPS
  * @returns { Promise<Map<string, QrBox>> }
  */
-async function imageBoxes(page) {
+async function imageBoxes(page, OPS) {
   const ops = await page.getOperatorList();
   /** @type { [number, number, number, number, number, number] } */
   let ctm = [1, 0, 0, 1, 0, 0];
@@ -124,8 +136,11 @@ async function imageBoxes(page) {
  */
 function getImage(page, name) {
   return new Promise((resolve, reject) => {
-    page.objs.get(name, resolve);
-    setTimeout(() => reject(new Error(`Timed out reading PDF image ${name}`)), 8000);
+    const timer = setTimeout(() => reject(new Error(`Timed out reading PDF image ${name}`)), 8000);
+    page.objs.get(name, /** @param { unknown } img */ img => {
+      clearTimeout(timer);
+      resolve(img);
+    });
   });
 }
 
@@ -138,18 +153,18 @@ export async function extractSwissQrFromPdf(bytes) {
   /** @type { { numPages: number, getPage: (n: number) => Promise<unknown>, destroy: () => Promise<void> } | undefined } */
   let doc;
   try {
+    const { getDocument, OPS } = await loadPdfjs();
     doc = await getDocument(/** @type { object } */ ({ data: pdfjsData(bytes), disableWorker: true, isEvalSupported: false })).promise;
     /** @type { import("./pdfQr.js").PdfQr | null } */
     let found = null;
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
       const page = /** @type { import("pdfjs-dist").PDFPageProxy } */ (await doc.getPage(pageNumber));
-      const boxes = await imageBoxes(page);
+      const boxes = await imageBoxes(page, OPS);
       for (const [name, box] of boxes) {
         const img = await getImage(page, name);
         const rgba = toRgba(img);
         if (!rgba) continue;
-        const decode = typeof jsQR === "function" ? jsQR : /** @type { { default: typeof jsQR } } */ (jsQR).default;
-        const qr = decode(rgba.data, rgba.width, rgba.height);
+        const qr = decodeQr(rgba.data, rgba.width, rgba.height);
         const payload = qr?.data?.replace(/^\uFEFF/, "") ?? "";
         if (payload.startsWith("SPC")) {
           found = { payload, box: { ...box, pageIndex: pageNumber - 1 } };

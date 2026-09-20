@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-/** @import { EitherType } from "./either.js" */
+/** @import { EitherType } from "@qr-invoice/core" */
 /** @import { ConvertOptions } from "./pipeline.js" */
 
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { left, right } from "./either.js";
+import { left, right } from "@qr-invoice/core";
 import { canWrite, convertInvoiceFile } from "./pipeline.js";
 
 /** @typedef { ConvertOptions & { input: string } } CliArgs */
@@ -12,6 +12,8 @@ import { canWrite, convertInvoiceFile } from "./pipeline.js";
 /** @returns { string } @pure */
 function helpText() {
   return `invoice-converter <old.txt|old.pdf> --output <new.txt|new.pdf>
+
+  Optional local tool. The product is the in-browser page (npm run web).
 
   PDF in  → reads the Swiss QR image and restamps it on the same invoice page
   PDF out → writes a PDF (restamped invoice, or a new page if the input was text)

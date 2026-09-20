@@ -1,15 +1,13 @@
 /** @import { InvoiceData, ParsedInvoice, ReviewField } from "./models.js" */
 /** @import { EitherType } from "./either.js" */
 /** @import { ValidationResult } from "./validate.js" */
-/** @import { QrBox } from "./pdfQr.js" */
 
 import { left, right } from "./either.js";
 import { extractSwissQrPayload, parseQrPayload } from "./parse.js";
 import { normalizeInvoice } from "./normalize.js";
 import { validateInvoice } from "./validate.js";
 import { buildQrPayload } from "./build.js";
-import { extractSwissQrFromPdf, isPdf } from "./pdfQr.js";
-import { buildInvoicePdf } from "./pdfWrite.js";
+import { isPdf } from "./pdfMagic.js";
 
 /**
  * @typedef { {
@@ -50,8 +48,27 @@ export function canWrite(result, options) {
 }
 
 /**
- * In-memory convert for a future UI. No HTTP server.
- * Pass File/Blob bytes or SPC text; get bytes back when canWrite allows.
+ * Parse + normalize + validate. No output bytes yet.
+ * @param   { string } rawQr
+ * @returns { EitherType<string, Converted> }
+ * @pure
+ */
+export function analyze(rawQr) {
+  const parsed = parseQrPayload(rawQr);
+  if (!parsed.ok) return parsed;
+  const normalized = normalizeInvoice(parsed.value);
+  return right({
+    rawQr,
+    parsed: normalized.parsed,
+    invoice: normalized.invoice,
+    review: normalized.review,
+    validation: validateInvoice(normalized.invoice),
+  });
+}
+
+/**
+ * In-memory SPC convert for a future UI. No HTTP. No PDF libraries.
+ * PDF bytes: import `qr-invoice/pdf` instead.
  *
  * @param   { Uint8Array | ArrayBuffer | string } input
  * @param   { ConvertInputOptions }               [options]
@@ -64,50 +81,17 @@ export async function convert(input, options = {}) {
       : input instanceof Uint8Array
         ? input
         : new Uint8Array(input);
-
-  /** @type { string } */
-  let rawQr;
-  /** @type { Uint8Array | undefined } */
-  let originalPdf;
-  /** @type { QrBox | undefined } */
-  let qrBox;
   if (isPdf(bytes)) {
-    const qr = await extractSwissQrFromPdf(bytes);
-    if (!qr.ok) return qr;
-    rawQr = qr.value.payload;
-    originalPdf = bytes;
-    qrBox = qr.value.box;
-  } else {
-    const extracted = extractSwissQrPayload(new TextDecoder().decode(bytes));
-    if (!extracted.ok) return extracted;
-    rawQr = extracted.value;
+    return left("PDF input needs the PDF adapter (import '@qr-invoice/pdf').");
   }
-
-  const parsed = parseQrPayload(rawQr);
-  if (!parsed.ok) return parsed;
-  const normalized = normalizeInvoice(parsed.value);
-  /** @type { Converted } */
-  const result = {
-    rawQr,
-    parsed: normalized.parsed,
-    invoice: normalized.invoice,
-    review: normalized.review,
-    validation: validateInvoice(normalized.invoice),
-  };
+  const extracted = extractSwissQrPayload(new TextDecoder().decode(bytes));
+  if (!extracted.ok) return extracted;
+  const analyzed = analyze(extracted.value);
+  if (!analyzed.ok) return analyzed;
+  const result = analyzed.value;
   const gate = canWrite(result, options);
   if (!gate.ok) return right(result);
-
-  const wantPdf = options.output === "pdf" || (options.output !== "spc" && Boolean(originalPdf));
-  try {
-    if (wantPdf) {
-      result.bytes = await buildInvoicePdf(gate.value, { originalPdf, qrBox });
-      result.mediaType = "application/pdf";
-    } else {
-      result.bytes = new TextEncoder().encode(buildQrPayload(gate.value));
-      result.mediaType = "text/plain;charset=utf-8";
-    }
-  } catch (error) {
-    return left(error instanceof Error ? error.message : String(error));
-  }
+  result.bytes = new TextEncoder().encode(buildQrPayload(gate.value));
+  result.mediaType = "text/plain;charset=utf-8";
   return right(result);
 }

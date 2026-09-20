@@ -1,0 +1,21 @@
+{
+  "name": "@qr-invoice/cli",
+  "version": "0.1.1",
+  "description": "Optional local CLI. Not an HTTP backend.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "invoice-converter": "./src/cli.js"
+  },
+  "files": [
+    "src/*.js",
+    "!src/*.test.js"
+  ],
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "dependencies": {
+    "@qr-invoice/core": "0.1.1",
+    "@qr-invoice/pdf": "0.1.1"
+  }
+}

@@ -1,9 +1,9 @@
-/** @import { InvoiceData } from "./models.js" */
+/** @import { InvoiceData } from "@qr-invoice/core" */
 /** @import { QrBox } from "./pdfQr.js" */
 
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import QRCode from "qrcode";
-import { buildQrPayload } from "./build.js";
+import { buildQrPayload } from "@qr-invoice/core";
 import { encodePng } from "./png.js";
 
 /**
