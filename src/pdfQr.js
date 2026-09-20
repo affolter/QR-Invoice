@@ -1,7 +1,7 @@
-/** @import { EitherType } from "@qr-invoice/core" */
+/** @import { EitherType } from "./index.js" */
 
 import jsQR from "jsqr";
-import { left, right } from "@qr-invoice/core";
+import { left, right } from "./index.js";
 
 /**
  * @typedef { { x: number, y: number, width: number, height: number, pageIndex: number } } QrBox
@@ -21,13 +21,19 @@ function decodeQr(data, width, height) {
 
 /**
  * Node uses the pdf.js legacy build; the browser uses the generic build.
- * @returns { Promise<{ getDocument: typeof import("pdfjs-dist").getDocument, OPS: typeof import("pdfjs-dist").OPS }> }
+ * The generic build still reads workerSrc even when disableWorker is true.
+ * @returns { Promise<{ getDocument: typeof import("pdfjs-dist").getDocument, OPS: typeof import("pdfjs-dist").OPS, GlobalWorkerOptions?: { workerSrc: string } }> }
  */
-function loadPdfjs() {
+async function loadPdfjs() {
   if (typeof document === "undefined") {
     return import("pdfjs-dist/legacy/build/pdf.mjs");
   }
-  return import("pdfjs-dist/build/pdf.mjs");
+  const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
+  if (pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
+    const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+    pdfjs.GlobalWorkerOptions.workerSrc = String(worker.default);
+  }
+  return pdfjs;
 }
 
 /**
@@ -59,6 +65,31 @@ function mul(m, n) {
   const ne = n[4] ?? 0;
   const nf = n[5] ?? 0;
   return [a * na + c * nb, b * na + d * nb, a * nc + c * nd, b * nc + d * nd, a * ne + c * nf + e, b * ne + d * nf + f];
+}
+
+/**
+ * @param { { width?: number, height?: number, data?: Uint8Array | Uint8ClampedArray, kind?: number, bitmap?: ImageBitmap } | ImageBitmap | null } img
+ * @returns { Promise<{ data: Uint8ClampedArray, width: number, height: number } | null> }
+ */
+async function imageRgba(img) {
+  if (!img) return null;
+  const bitmap =
+    typeof ImageBitmap !== "undefined" && img instanceof ImageBitmap
+      ? img
+      : "bitmap" in img
+        ? img.bitmap
+        : undefined;
+  if (bitmap && typeof document !== "undefined") {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0);
+    const { data, width, height } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+    return { data, width, height };
+  }
+  return toRgba(/** @type { { width: number, height: number, data: Uint8Array | Uint8ClampedArray, kind?: number } } */ (img));
 }
 
 /**
@@ -154,7 +185,14 @@ export async function extractSwissQrFromPdf(bytes) {
   let doc;
   try {
     const { getDocument, OPS } = await loadPdfjs();
-    doc = await getDocument(/** @type { object } */ ({ data: pdfjsData(bytes), disableWorker: true, isEvalSupported: false })).promise;
+    const browser = typeof document !== "undefined";
+    doc = await getDocument(
+      /** @type { object } */ ({
+        data: pdfjsData(bytes),
+        disableWorker: !browser,
+        isEvalSupported: false,
+      }),
+    ).promise;
     /** @type { import("./pdfQr.js").PdfQr | null } */
     let found = null;
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
@@ -162,7 +200,7 @@ export async function extractSwissQrFromPdf(bytes) {
       const boxes = await imageBoxes(page, OPS);
       for (const [name, box] of boxes) {
         const img = await getImage(page, name);
-        const rgba = toRgba(img);
+        const rgba = await imageRgba(img);
         if (!rgba) continue;
         const qr = decodeQr(rgba.data, rgba.width, rgba.height);
         const payload = qr?.data?.replace(/^\uFEFF/, "") ?? "";
@@ -171,9 +209,13 @@ export async function extractSwissQrFromPdf(bytes) {
         }
       }
     }
-    return found ? right(found) : left("No Swiss QR code (SPC payload) found in the PDF images.");
+    return found
+      ? right(found)
+      : left("This PDF has no Swiss QR code. The tool reads an embedded QR image, not a photograph of a page.");
   } catch (error) {
-    return left(error instanceof Error ? error.message : String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    if (/invalid pdf|pdf header|no pdf header/i.test(message)) return left("This file is not a readable PDF.");
+    return left(message);
   } finally {
     if (doc) await doc.destroy();
   }

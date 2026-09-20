@@ -1,6 +1,7 @@
-import { applyAddressReview, canWrite, createOutputFilename, isPdf } from "@qr-invoice/core";
-import { convert, writeInvoice } from "@qr-invoice/pdf";
-import { reviewPayload } from "../packages/core/src/fixtures.js";
+import { applyAddressReview, canWrite, createOutputFilename, isPdf } from "../src/index.js";
+import { convert, writeInvoice } from "../src/pdf.js";
+import { reviewPayload } from "../src/fixtures.js";
+import { appendQueue, fileStem, formatSize } from "./files.js";
 import { getAddressPatches, project, setStatus } from "./render.js";
 
 const fileInput = /** @type { HTMLInputElement } */ (document.getElementById("file"));
@@ -27,44 +28,54 @@ const dom = {
 };
 
 /**
- * @typedef { { name: string, bytes: Uint8Array, fromPdf: boolean } } Dropped
+ * @typedef { { name: string, bytes: Uint8Array, fromPdf: boolean, size: number } } Dropped
  */
 
 /** @type { Dropped[] } */
 let queue = [];
 /** @type { number } */
 let index = 0;
-/** @type { import("@qr-invoice/core").Converted | null } */
+/** @type { import("../src/index.js").Converted | null } */
 let currentResult = null;
+let dragDepth = 0;
 
 /** @returns { Dropped | undefined } */
 const current = () => queue[index];
+
+/** @param { Event } event */
+const swallowPageDrop = event => event.preventDefault();
+window.addEventListener("dragover", swallowPageDrop);
+window.addEventListener("drop", swallowPageDrop);
 
 /**
  * @param { FileList | Array<File> } files
  */
 async function onFiles(files) {
-  panel.hidden = true;
-  currentResult = null;
-  setStatus(statusEl, "loading", "Reading files…");
-  queue = [];
+  const added = [];
   for (const file of Array.from(files)) {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    queue.push({
-      name: file.name.replace(/\.(pdf|txt|spc)$/i, "") || "qr-invoice",
+    added.push({
+      name: fileStem(file.name),
       bytes,
       fromPdf: isPdf(bytes) || file.name.toLowerCase().endsWith(".pdf"),
+      size: file.size,
     });
   }
-  index = 0;
+  if (!added.length) return;
+  const wasEmpty = queue.length === 0;
+  queue = appendQueue(queue, added);
+  if (wasEmpty) index = 0;
+  fileInput.value = "";
   drawQueue();
   await analyzeCurrent();
 }
 
 function loadReviewExample() {
-  const bytes = new TextEncoder().encode(reviewPayload());
-  queue = [{ name: "review-needed", bytes, fromPdf: false }];
-  index = 0;
+  const text = reviewPayload();
+  const bytes = new TextEncoder().encode(text);
+  const wasEmpty = queue.length === 0;
+  queue = appendQueue(queue, [{ name: "review-needed", bytes, fromPdf: false, size: bytes.byteLength }]);
+  if (wasEmpty) index = 0;
   drawQueue();
   void analyzeCurrent();
 }
@@ -73,16 +84,41 @@ function drawQueue() {
   queueEl.replaceChildren();
   queue.forEach((item, i) => {
     const li = document.createElement("li");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = i === index ? "queue-current" : "queue-item";
-    btn.textContent = item.name;
-    btn.addEventListener("click", () => {
+    li.className = i === index ? "queue-row queue-current" : "queue-row";
+    const select = document.createElement("button");
+    select.type = "button";
+    select.className = "queue-select";
+    const name = document.createElement("span");
+    name.className = "queue-name";
+    name.textContent = item.name;
+    const meta = document.createElement("span");
+    meta.className = "queue-meta";
+    meta.textContent = formatSize(item.size);
+    select.append(name, meta);
+    select.addEventListener("click", () => {
       index = i;
       drawQueue();
       void analyzeCurrent();
     });
-    li.append(btn);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "queue-remove";
+    remove.setAttribute("aria-label", `Remove ${item.name}`);
+    remove.textContent = "Remove";
+    remove.addEventListener("click", event => {
+      event.stopPropagation();
+      queue = queue.filter((_, j) => j !== i);
+      if (queue.length === 0) {
+        index = 0;
+        currentResult = null;
+        panel.hidden = true;
+        setStatus(statusEl, "empty", "No file yet.");
+      } else if (index > i) index -= 1;
+      else if (index >= queue.length) index = queue.length - 1;
+      drawQueue();
+      if (queue.length) void analyzeCurrent();
+    });
+    li.append(select, remove);
     queueEl.append(li);
   });
 }
@@ -107,6 +143,28 @@ async function analyzeCurrent() {
   project(dom, currentResult, { fromPdf: item.fromPdf });
 }
 
+/**
+ * @param { Dropped } item
+ * @param { Pick<import("../src/index.js").Converted, "invoice" | "validation" | "review"> } result
+ * @param { "spc" | "pdf" } kind
+ */
+async function emitBytes(item, result, kind) {
+  const gate = canWrite(result, { acceptReview: true });
+  if (!gate.ok) {
+    setStatus(statusEl, "error", gate.error);
+    return;
+  }
+  const written = await writeInvoice(gate.value, {
+    originalPdf: item.fromPdf ? item.bytes : undefined,
+    output: kind,
+  });
+  if (!written.ok) {
+    setStatus(statusEl, "error", written.error);
+    return;
+  }
+  return written.value;
+}
+
 async function acceptReviewed() {
   const item = current();
   if (!item || !currentResult?.invoice) return;
@@ -117,18 +175,10 @@ async function acceptReviewed() {
     validation: applied.validation,
     review: applied.review,
   };
-  const gate = canWrite(currentResult, { acceptReview: true });
-  if (gate.ok) {
-    const written = await writeInvoice(gate.value, {
-      originalPdf: item.fromPdf ? item.bytes : undefined,
-      output: item.fromPdf ? "pdf" : "spc",
-    });
-    if (!written.ok) {
-      setStatus(statusEl, "error", written.error);
-      return;
-    }
-    currentResult.bytes = written.value.bytes;
-    currentResult.mediaType = written.value.mediaType;
+  const written = await emitBytes(item, currentResult, item.fromPdf ? "pdf" : "spc");
+  if (written) {
+    currentResult.bytes = written.bytes;
+    currentResult.mediaType = written.mediaType;
   }
   project(dom, currentResult, { fromPdf: item.fromPdf });
 }
@@ -140,26 +190,11 @@ async function download(kind) {
   const item = current();
   if (!item || !currentResult?.invoice) return;
   const applied = applyAddressReview(currentResult.invoice, getAddressPatches());
-  const gated = canWrite(
-    { invoice: applied.invoice, validation: applied.validation, review: applied.review },
-    { acceptReview: true },
-  );
-  if (!gated.ok) {
-    setStatus(statusEl, "error", gated.error);
-    return;
-  }
-  const written = await writeInvoice(gated.value, {
-    originalPdf: item.fromPdf ? item.bytes : undefined,
-    output: kind,
-  });
-  if (!written.ok) {
-    setStatus(statusEl, "error", written.error);
-    return;
-  }
+  const written = await emitBytes(item, applied, kind);
+  if (!written) return;
   const type = kind === "pdf" ? "application/pdf" : "text/plain;charset=utf-8";
-  const bytes = written.value.bytes;
-  const copy = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(copy).set(bytes);
+  const copy = new ArrayBuffer(written.bytes.byteLength);
+  new Uint8Array(copy).set(written.bytes);
   const blob = new Blob([copy], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -173,13 +208,23 @@ fileInput.addEventListener("change", () => {
   if (fileInput.files?.length) void onFiles(fileInput.files);
 });
 
-drop.addEventListener("dragover", event => {
+drop.addEventListener("dragenter", event => {
   event.preventDefault();
+  dragDepth += 1;
   drop.classList.add("over");
 });
-drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("dragleave", event => {
+  event.preventDefault();
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) drop.classList.remove("over");
+});
+drop.addEventListener("dragover", event => {
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+});
 drop.addEventListener("drop", event => {
   event.preventDefault();
+  dragDepth = 0;
   drop.classList.remove("over");
   const files = event.dataTransfer?.files;
   if (files?.length) void onFiles(files);
@@ -189,14 +234,3 @@ acceptBtn.addEventListener("click", () => void acceptReviewed());
 spcBtn.addEventListener("click", () => void download("spc"));
 pdfBtn.addEventListener("click", () => void download("pdf"));
 exampleBtn.addEventListener("click", () => loadReviewExample());
-
-const apiEl = document.getElementById("api-status");
-if (apiEl) {
-  fetch("/api/health")
-    .then(res => {
-      apiEl.textContent = res.ok ? "JSON API: up (optional)" : "JSON API: down — conversion stays in this tab";
-    })
-    .catch(() => {
-      apiEl.textContent = "JSON API: down — conversion stays in this tab";
-    });
-}

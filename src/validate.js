@@ -23,7 +23,7 @@ function mod10(digits) {
  * @returns { boolean }
  * @pure
  */
-export function mod97Ok(compact) {
+function mod97Ok(compact) {
   const rearranged = compact.slice(4) + compact.slice(0, 4);
   const numeric = rearranged.replace(/[A-Z]/g, ch => String(ch.charCodeAt(0) - 55));
   let remainder = 0;

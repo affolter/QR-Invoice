@@ -1,18 +1,16 @@
-/** @import { ConvertInputOptions, Converted } from "@qr-invoice/core" */
-/** @import { EitherType } from "@qr-invoice/core" */
+/** @import { ConvertInputOptions, Converted, EitherType, InvoiceData } from "./index.js" */
 
-import { analyze, buildQrPayload, canWrite, extractSwissQrPayload, isPdf, left, right } from "@qr-invoice/core";
+import { analyze, buildQrPayload, canWrite, extractSwissQrPayload, isPdf, left, right } from "./index.js";
 import { extractSwissQrFromPdf } from "./pdfQr.js";
 import { buildInvoicePdf } from "./pdfWrite.js";
 
-export { isPdf, canWrite };
 export { extractSwissQrFromPdf } from "./pdfQr.js";
-export { buildInvoicePdf, swissQrPng } from "./pdfWrite.js";
+export { swissQrPng } from "./pdfWrite.js";
 
 /**
  * Emit SPC or PDF bytes from already-reviewed InvoiceData. Re-extracts the QR box if needed.
  *
- * @param   { import("@qr-invoice/core").InvoiceData } invoice
+ * @param   { InvoiceData } invoice
  * @param   { {
  *   output?: "pdf" | "spc" | "auto",
  *   originalPdf?: Uint8Array,

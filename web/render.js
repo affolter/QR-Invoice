@@ -1,7 +1,7 @@
-/** @import { Converted, Party } from "@qr-invoice/core" */
+/** @import { Converted, Party } from "../src/index.js" */
 /** @import { ObservableType } from "./observable.js" */
 
-import { canWrite } from "@qr-invoice/core";
+import { canWrite } from "../src/index.js";
 import { Observable } from "./observable.js";
 
 /**
@@ -70,13 +70,13 @@ export function project(dom, result, view) {
   if (needsReview) {
     setStatus(dom.status, "review", "Review the address fields, then accept. IBAN, amount, currency, and reference stay locked.");
   } else if (!gate.ok) setStatus(dom.status, "error", gate.error);
-  else if (!result.bytes) setStatus(dom.status, "error", "No output bytes.");
+  else if (!result.bytes) setStatus(dom.status, "error", "Nothing to download yet.");
   else {
     setStatus(
       dom.status,
       "ok",
       view.fromPdf
-        ? "Ready. Banks read the restamped QR; printed type K on the page may remain."
+        ? "Ready. Banks read the restamped QR; printed address lines on the page are not rewritten."
         : "Ready to download.",
     );
   }

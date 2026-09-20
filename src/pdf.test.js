@@ -5,12 +5,12 @@ import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import jsQR from "jsqr";
-import { applyAddressReview, isPdf } from "@qr-invoice/core";
-import { unwrap } from "../../core/src/either.js";
-import { buildSwissQrPayload } from "../../core/src/fixtures.js";
-import { convert, extractSwissQrFromPdf, swissQrPng, writeInvoice } from "./index.js";
+import { applyAddressReview, isPdf } from "./index.js";
+import { unwrap } from "./either.js";
+import { buildSwissQrPayload } from "./fixtures.js";
+import { convert, extractSwissQrFromPdf, swissQrPng, writeInvoice } from "./pdf.js";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const spcFixture = join(root, "fixtures", "spc", "affolter-27338.txt");
 const pdfFixture = join(root, "fixtures", "pdf", "affolter-27338.pdf");
 
@@ -18,6 +18,21 @@ describe("PDF QR restamp", () => {
   it("detects PDF magic bytes", () => {
     assert.equal(isPdf(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])), true);
     assert.equal(isPdf(new TextEncoder().encode("SPC\n0200")), false);
+  });
+
+  it("explains a PDF that has no Swiss QR image", async () => {
+    const emptyPdf = new TextEncoder().encode(
+      "%PDF-1.1\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000068 00000 n \n0000000125 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n203\n%%EOF\n",
+    );
+    const extracted = await extractSwissQrFromPdf(emptyPdf);
+    assert.equal(extracted.ok, false);
+    if (!extracted.ok) assert.match(extracted.error, /no Swiss QR code/i);
+  });
+
+  it("explains a file that only looks like a PDF", async () => {
+    const extracted = await extractSwissQrFromPdf(new TextEncoder().encode("%PDF-1.4 not a real pdf"));
+    assert.equal(extracted.ok, false);
+    if (!extracted.ok) assert.equal(extracted.error, "This file is not a readable PDF.");
   });
 
   it("reads the git-tracked Affolter PDF fixture and restamps S with 8 B", async () => {

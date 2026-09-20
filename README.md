@@ -1,46 +1,21 @@
-# Swiss QR Invoice Migration Tool
+# QR-Invoice
 
-Browser-first: structured address type `S` out. IBAN, amount, currency, and reference are never rewritten. Combined `K` becomes `S`; `8 B`, `12-14`, `12/14`, `4bis`, and `4 bis` stay as printed.
-
-Conversion runs **in the tab**. Optional Node serves static files and a tiny JSON API (`InvoiceData` only). It never accepts PDF.
-
-Stay on **0.1.x**. Docs: [architecture](docs/architecture.md), [domain](docs/domain.md), [decisions](docs/decisions.md).
-
-## Open the page
+Convert a Swiss QR-bill from combined address type `K` to structured `S`. Runs in the browser. IBAN, amount, currency, and reference are never rewritten. House numbers like `8 B` stay `8 B`.
 
 ```bash
 npm install
 npm run web
+npm test
 ```
 
-http://127.0.0.1:43187 — drop `fixtures/spc/affolter-27338.txt` or `fixtures/pdf/affolter-27338.pdf`.
+Open http://127.0.0.1:43187. Drop one or more files — further drops **append**. Click a row to review it, Remove to drop it from the list. Try `fixtures/spc/affolter-27338.txt`, `fixtures/pdf/affolter-27338.pdf`, or **Load example that needs review**.
 
-## Try the review UI
-
-1. `npm run web` and open http://127.0.0.1:43187
-2. Click **Load example that needs review** (or drop `fixtures/spc/review-needed.txt`)
-3. Street `Route 12 Dorf 8` is editable; IBAN, amount, currency, and reference stay locked
-4. Change the street/building if you want, then **Accept reviewed addresses**
-5. Download SPC or PDF — the file is built from the patched address, not by re-guessing the original payload
-
-## JSON API (optional)
-
-```bash
-npm run build
-npm run server
-```
-
-http://127.0.0.1:43188
-
-- `GET /api/health`
-- `GET /api/capabilities`
-- `POST /api/validate` — JSON `InvoiceData`, 32 KiB max, no PDF/images/storage
-
-The page still converts if this process is down. With both running, `npm run web` proxies `/api` to `:43188`.
-
-## Optional CLI
+Optional CLI:
 
 ```bash
 npm run cli -- fixtures/spc/affolter-27338.txt --output /tmp/qr-invoice-out.txt
-npm test
 ```
+
+`--accept-review` writes despite low-confidence addresses. `--strict` treats warnings as fatal.
+
+PDF restamp overlays a new QR. Printed slip text may still show type `K`; banks read the QR. Scan-only pages without an image XObject are unsupported. Needs Node 20.19+.

@@ -89,7 +89,15 @@ describe("extractSwissQrPayload", () => {
   });
 
   it("rejects files with no SPC payload", () => {
-    assert.equal(extractSwissQrPayload("%PDF-1.4 with no qr").ok, false);
+    const extracted = extractSwissQrPayload("%PDF-1.4 with no qr");
+    assert.equal(extracted.ok, false);
+    if (!extracted.ok) assert.match(extracted.error, /No Swiss QR payload found/);
+  });
+
+  it("rejects an empty file with a plain message", () => {
+    const extracted = extractSwissQrPayload("   ");
+    assert.equal(extracted.ok, false);
+    if (!extracted.ok) assert.equal(extracted.error, "The file is empty.");
   });
 
   it("finds SPC after a BOM and leading noise using the same stripped string", () => {

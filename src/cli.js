@@ -1,13 +1,17 @@
 #!/usr/bin/env node
-/** @import { EitherType } from "@qr-invoice/core" */
-/** @import { ConvertOptions } from "./pipeline.js" */
+/** @import { Converted, ConvertInputOptions, EitherType } from "./index.js" */
 
-import { resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { left, right } from "@qr-invoice/core";
-import { canWrite, convertInvoiceFile } from "./pipeline.js";
+import { canWrite, left, right } from "./index.js";
+import { convert } from "./pdf.js";
 
-/** @typedef { ConvertOptions & { input: string } } CliArgs */
+/**
+ * @typedef { Converted & { outputPath?: string } } ConversionResult
+ * @typedef { ConvertInputOptions & { outputPath: string } } ConvertOptions
+ * @typedef { ConvertOptions & { input: string } } CliArgs
+ */
 
 /** @returns { string } @pure */
 function helpText() {
@@ -52,6 +56,51 @@ export function parseArgs(argv) {
 }
 
 /**
+ * @param   { string }         rawQr
+ * @param   { ConvertOptions } options
+ * @returns { Promise<EitherType<string, ConversionResult>> }
+ */
+export async function convertQrPayload(rawQr, options) {
+  const wantPdf = options.outputPath.toLowerCase().endsWith(".pdf");
+  return finish(await convert(rawQr, { ...options, output: wantPdf ? "pdf" : "spc" }), options.outputPath);
+}
+
+/**
+ * @param   { string }         inputPath
+ * @param   { ConvertOptions } options
+ * @returns { Promise<EitherType<string, ConversionResult>> }
+ */
+export async function convertInvoiceFile(inputPath, options) {
+  let bytes;
+  try {
+    bytes = Uint8Array.from(await readFile(inputPath));
+  } catch (error) {
+    return left(error instanceof Error ? error.message : String(error));
+  }
+  const wantPdf = options.outputPath.toLowerCase().endsWith(".pdf");
+  return finish(await convert(bytes, { ...options, output: wantPdf ? "pdf" : "spc" }), options.outputPath);
+}
+
+/**
+ * @param { EitherType<string, Converted> } converted
+ * @param { string } outputPath
+ * @returns { Promise<EitherType<string, ConversionResult>> }
+ */
+async function finish(converted, outputPath) {
+  if (!converted.ok) return converted;
+  const result = /** @type { ConversionResult } */ ({ ...converted.value });
+  if (!result.bytes) return right(result);
+  try {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, result.bytes);
+  } catch (error) {
+    return left(error instanceof Error ? error.message : String(error));
+  }
+  result.outputPath = outputPath;
+  return right(result);
+}
+
+/**
  * @param   { string[] } argv
  * @returns { Promise<number> }
  */
@@ -71,10 +120,8 @@ export async function runCli(argv) {
     return 1;
   }
   const result = converted.value;
-  for (const issue of result.validation.issues) console.error(`  [${issue.severity}] ${issue.field}: ${issue.message}`);
-  for (const item of result.review) {
-    console.error(`  ${item.path} = ${JSON.stringify(item.value)} (confidence ${item.confidence}, source ${item.source})`);
-  }
+  for (const issue of result.validation.issues) console.error(`  [${issue.severity}] ${issue.code}`);
+  for (const item of result.review) console.error(`  review: ${item.path}`);
   const gate = canWrite(result, parsed.value);
   if (!gate.ok) {
     console.error(gate.error);

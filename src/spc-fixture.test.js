@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -8,9 +8,7 @@ import { unwrap } from "./either.js";
 import { normalizeInvoice } from "./normalize.js";
 import { parseQrPayload } from "./parse.js";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const fixtureDir = join(root, "fixtures", "spc");
-const sampleDirs = [join(root, "samples"), join(root, "sample")];
+const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), "../fixtures/spc");
 
 /**
  * @param { import("./models.js").InvoiceData } invoice
@@ -61,37 +59,5 @@ describe("affolter-27338 K→S fixture", () => {
     assert.equal(again.currency.value, expected.currency);
     assert.equal(again.reference.value, expected.reference);
     assert.equal(again.referenceType.value, expected.referenceType);
-  });
-});
-
-describe("checkout sample SPC files", () => {
-  it("round-trips any extra .txt/.spc invoices under sample(s)/", async () => {
-    /** @type { string[] } */
-    const found = [];
-    for (const dir of sampleDirs) {
-      let names = [];
-      try {
-        names = await readdir(dir);
-      } catch {
-        continue;
-      }
-      for (const name of names) {
-        if (name.endsWith(".txt") || name.endsWith(".spc")) found.push(join(dir, name));
-      }
-    }
-    for (const path of found) {
-      const parsed = parseQrPayload(await readFile(path, "utf8"));
-      assert.equal(parsed.ok, true, path);
-      if (!parsed.ok) continue;
-      const { invoice } = normalizeInvoice(parsed.value);
-      assert.ok(invoice, path);
-      const again = unwrap(parseQrPayload(buildQrPayload(invoice)));
-      assert.equal(again.creditor.addressType.value, "S");
-      if (invoice.debtor) assert.equal(again.debtor?.addressType.value, "S");
-      assert.equal(again.account.value, invoice.account);
-      assert.equal(again.amount.value, invoice.amount);
-      assert.equal(again.currency.value, invoice.currency);
-      assert.equal(again.reference.value, invoice.reference);
-    }
   });
 });

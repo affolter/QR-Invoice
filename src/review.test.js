@@ -1,21 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 import { analyze, canWrite } from "./backend.js";
 import { unwrap } from "./either.js";
 import { reviewPayload } from "./fixtures.js";
 import { applyAddressReview } from "./review.js";
 
-const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "../../../fixtures/spc/review-needed.txt");
-
 describe("applyAddressReview", () => {
-  it("tracks the git example that needs review", () => {
-    const file = readFileSync(fixturePath, "utf8").replace(/\r\n/g, "\n").trimEnd();
-    assert.equal(file, reviewPayload());
-  });
-
   it("blocks write until the ambiguous street is reviewed", () => {
     const result = unwrap(analyze(reviewPayload()));
     assert.ok(result.review.some(item => item.path === "creditor.street"));

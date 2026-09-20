@@ -10,18 +10,7 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "maxNodeModuleJsDepth": 0,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@qr-invoice/core": ["packages/core/src/index.js"],
-      "@qr-invoice/pdf": ["packages/pdf/src/index.js"]
-    }
+    "types": ["node"]
   },
-  "include": [
-    "packages/**/*.js",
-    "packages/**/*.d.ts",
-    "web/**/*.js",
-    "vite.config.js"
-  ],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*.js", "src/**/*.d.ts", "web/**/*.js", "vite.config.js"]
 }

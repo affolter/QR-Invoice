@@ -36,13 +36,13 @@ import { isPdf } from "./pdfMagic.js";
  */
 export function canWrite(result, options) {
   if (!result.invoice || !result.validation.valid) {
-    return left("Generation blocked by validation errors. IBAN, amount, currency and reference were not modified.");
+    return left("This QR-bill cannot be written. IBAN, amount, currency and reference were not modified.");
   }
   if (result.review.length > 0 && !options.acceptReview) {
-    return left("Generation blocked until ambiguous address fields are reviewed. Re-run with --accept-review only if you accept the inferred values.");
+    return left("Address fields need review before writing. In the page, edit them and accept. In the CLI, pass --accept-review only if you accept the inferred values.");
   }
   if (options.strict && result.validation.issues.some(issue => issue.severity === "warning")) {
-    return left("Generation blocked by --strict (warnings present).");
+    return left("Writing blocked by --strict (warnings present).");
   }
   return right(result.invoice);
 }
@@ -67,8 +67,8 @@ export function analyze(rawQr) {
 }
 
 /**
- * In-memory SPC convert for a future UI. No HTTP. No PDF libraries.
- * PDF bytes: import `qr-invoice/pdf` instead.
+ * In-memory SPC convert. No HTTP. No PDF libraries.
+ * PDF bytes: use `pdf.js` instead.
  *
  * @param   { Uint8Array | ArrayBuffer | string } input
  * @param   { ConvertInputOptions }               [options]
@@ -82,7 +82,7 @@ export async function convert(input, options = {}) {
         ? input
         : new Uint8Array(input);
   if (isPdf(bytes)) {
-    return left("PDF input needs the PDF adapter (import '@qr-invoice/pdf').");
+    return left("PDF input needs the PDF converter.");
   }
   const extracted = extractSwissQrPayload(new TextDecoder().decode(bytes));
   if (!extracted.ok) return extracted;

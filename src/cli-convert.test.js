@@ -3,10 +3,10 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { unwrap } from "../../core/src/either.js";
-import { buildSwissQrPayload, debtorLessPayload, reviewPayload } from "../../core/src/fixtures.js";
-import { normalizeInvoice, parseQrPayload, validateInvoice } from "@qr-invoice/core";
-import { canWrite, convertInvoiceFile, convertQrPayload } from "./pipeline.js";
+import { unwrap } from "./either.js";
+import { buildSwissQrPayload, debtorLessPayload, reviewPayload } from "./fixtures.js";
+import { canWrite, normalizeInvoice, parseQrPayload, validateInvoice } from "./index.js";
+import { convertInvoiceFile, convertQrPayload } from "./cli.js";
 
 /** @param { string } raw */
 function prepared(raw) {

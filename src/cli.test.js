@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { unwrap } from "../../core/src/either.js";
+import { unwrap } from "./either.js";
 import { parseArgs } from "./cli.js";
 
 describe("CLI argv", () => {

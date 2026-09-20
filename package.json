@@ -2,33 +2,27 @@
   "name": "qr-invoice",
   "version": "0.1.1",
   "private": true,
-  "description": "Browser-first Swiss QR-bill converter. Core has zero runtime npm deps; PDF is an optional adapter; CLI is optional.",
+  "description": "Swiss QR-bill converter. Runs in the browser.",
   "type": "module",
   "license": "Apache-2.0",
-  "workspaces": [
-    "packages/core",
-    "packages/pdf",
-    "packages/cli",
-    "packages/server"
-  ],
   "bin": {
-    "invoice-converter": "./packages/cli/src/cli.js"
-  },
-  "exports": {
-    ".": "./packages/core/src/index.js",
-    "./pdf": "./packages/pdf/src/index.js"
+    "invoice-converter": "./src/cli.js"
   },
   "scripts": {
-    "cli": "node packages/cli/src/cli.js",
+    "cli": "node src/cli.js",
     "web": "vite",
     "build": "vite build",
-    "api": "node packages/server/src/serve.js",
-    "server": "node packages/server/src/serve.js",
-    "test": "tsc -p jsconfig.json --noEmit && node --test packages/core/src/*.test.js packages/pdf/src/*.test.js packages/cli/src/*.test.js packages/server/src/*.test.js web/*.test.js",
+    "test": "tsc -p jsconfig.json --noEmit && node --test src/*.test.js web/*.test.js",
     "typecheck": "tsc -p jsconfig.json --noEmit"
   },
   "engines": {
-    "node": ">=18.18.0"
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "jsqr": "^1.4.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.6.205",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",

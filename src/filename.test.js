@@ -9,6 +9,6 @@ describe("createOutputFilename", () => {
   });
 
   it("uses only the file name from a path", () => {
-    assert.equal(createOutputFilename("samples/Frey Peter 2026.pdf", "pdf"), "Frey Peter 2026-structured.pdf");
+    assert.equal(createOutputFilename("invoices/Frey Peter 2026.pdf", "pdf"), "Frey Peter 2026-structured.pdf");
   });
 });

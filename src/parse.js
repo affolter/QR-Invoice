@@ -21,7 +21,9 @@ function splitSpcLines(raw) {
  * @pure
  */
 function takeSpcFields(lines) {
-  if (lines.length < MIN) return left(`QR payload has ${lines.length} fields; Swiss QR-bill requires at least ${MIN}`);
+  if (lines.length < MIN) {
+    return left(`This QR payload is incomplete (${lines.length} fields; a Swiss QR-bill needs at least ${MIN}).`);
+  }
   if (lines[30] !== "EPD") return left(`Trailer must be EPD, got ${JSON.stringify(lines[30])}`);
   let end = MIN;
   while (end < lines.length && end < 34 && lines[end]) end += 1;
@@ -36,8 +38,11 @@ function takeSpcFields(lines) {
  */
 export function extractSwissQrPayload(raw) {
   const text = raw.replace(/^\uFEFF/, "");
+  if (!text.trim()) return left("The file is empty.");
   const start = text.search(/SPC\r?\n/);
-  if (start < 0) return left("No Swiss QR payload (SPC … EPD) found. Pass a .txt/.spc payload file.");
+  if (start < 0) {
+    return left("No Swiss QR payload found. Drop a .txt / .spc file, or a PDF with an embedded Swiss QR image.");
+  }
   return andThen(takeSpcFields(splitSpcLines(text.slice(start))), lines => right(lines.join("\n")));
 }
 

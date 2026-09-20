@@ -66,17 +66,45 @@ h1 {
   list-style: none;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.4rem;
 }
 
-.queue button {
+.queue-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+
+.queue-select {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--line);
 }
 
-.queue .queue-current {
+.queue-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-meta {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.queue-remove {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.queue .queue-current .queue-select {
   border-color: var(--accent);
   color: var(--accent);
 }

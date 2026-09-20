@@ -4,7 +4,7 @@
 import { validateInvoice } from "./validate.js";
 
 /** Paths the review UI may never change. */
-export const FINANCIAL_PATHS = Object.freeze([
+const LOCKED = new Set([
   "account",
   "amount",
   "currency",
@@ -14,9 +14,6 @@ export const FINANCIAL_PATHS = Object.freeze([
 ]);
 
 const ADDRESS_PATH = /^(creditor|debtor)\.(name|street|buildingNumber|postalCode|city|country)$/;
-
-/** @type { ReadonlySet<string> } */
-const LOCKED = new Set(FINANCIAL_PATHS);
 
 /**
  * @typedef { {
