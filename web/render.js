@@ -3,7 +3,7 @@
 import { canWrite } from "@qr-invoice/core";
 
 /**
- * Projector: Converted → DOM. No parse / normalize / PDF.
+ * Projector: Converted → DOM. Financial fields are locked (not editable).
  *
  * @param { {
  *   summary: HTMLElement,
@@ -19,13 +19,16 @@ import { canWrite } from "@qr-invoice/core";
  */
 export function project(dom, result, view) {
   const invoice = result.invoice;
+  const amount = invoice?.amount === undefined ? "open" : String(invoice.amount);
+  const reference = `${invoice?.referenceType ?? ""} ${invoice?.reference ?? ""}`.trim() || "—";
   dom.summary.replaceChildren();
-  row(dom.summary, "Creditor", invoice?.creditor.name ?? "—");
-  row(dom.summary, "Street", [invoice?.creditor.street, invoice?.creditor.buildingNumber].filter(Boolean).join(" ") || "—");
-  row(dom.summary, "IBAN", invoice?.account ?? "—");
-  row(dom.summary, "Amount", invoice?.amount === undefined ? "open" : `${invoice.amount} ${invoice.currency}`);
-  row(dom.summary, "Reference", `${invoice?.referenceType ?? ""} ${invoice?.reference ?? ""}`.trim() || "—");
-  row(dom.summary, "Address type", result.parsed.creditor.addressType.value || "—");
+  row(dom.summary, "Creditor", invoice?.creditor.name ?? "—", false);
+  row(dom.summary, "Street", [invoice?.creditor.street, invoice?.creditor.buildingNumber].filter(Boolean).join(" ") || "—", false);
+  row(dom.summary, "IBAN", invoice?.account ?? "—", true);
+  row(dom.summary, "Amount", amount, true);
+  row(dom.summary, "Currency", invoice?.currency ?? "—", true);
+  row(dom.summary, "Reference", reference, true);
+  row(dom.summary, "Address type", result.parsed.creditor.addressType.value || "—", false);
 
   list(dom.issues, result.validation.issues.map(issue => `${issue.severity}: ${issue.field} — ${issue.message}`));
   list(dom.review, result.review.map(item => `${item.path} = ${JSON.stringify(item.value)} (confidence ${item.confidence})`));
@@ -62,12 +65,21 @@ export function setStatus(el, kind, text) {
  * @param { HTMLElement } parent
  * @param { string } key
  * @param { string } value
+ * @param { boolean } locked
  */
-function row(parent, key, value) {
+function row(parent, key, value, locked) {
   const dt = document.createElement("dt");
-  dt.textContent = key;
+  dt.textContent = locked ? `${key} (locked)` : key;
   const dd = document.createElement("dd");
-  dd.textContent = value;
+  const input = document.createElement("input");
+  input.value = value;
+  input.readOnly = true;
+  input.tabIndex = -1;
+  if (locked) {
+    input.className = "locked";
+    input.setAttribute("aria-readonly", "true");
+  }
+  dd.append(input);
   parent.append(dt, dd);
 }
 

@@ -3,7 +3,7 @@
 import { certain, field, missing, needsReview } from "./models.js";
 
 const BUILDING_AT_END =
-  /^(.+?)\s+(\d+\s+[A-Za-z]|\d+\s*-\s*\d+|\d+[a-zA-Z]{1,3}|[A-Za-z]\d+[a-zA-Z]{0,2}|\d+)$/u;
+  /^(.+?)\s+(\d+\s*-\s*\d+|\d+\s*\/\s*\d+|\d+\s+[A-Za-z]{1,3}|\d+[a-zA-Z]{1,3}|[A-Za-z]\d+[a-zA-Z]{0,2}|\d+)$/u;
 const CITY_LINE = /^(?:CH[-\s]?)?(\d{4})\s+(.+)$/u;
 
 /** @type { Record<string, string> } */
@@ -44,17 +44,19 @@ export function parseStreetLine(line) {
   }
   const street = match[1]?.trim() ?? null;
   const rawBuilding = (match[2] ?? "").trim();
-  const buildingNumber = /^\d+\s+[A-Za-z]$/.test(rawBuilding)
+  const spacedLetter = /^\d+\s+[A-Za-z]{1,3}$/.test(rawBuilding);
+  const range = /^\d+\s*[-/]\s*\d+$/.test(rawBuilding);
+  const buildingNumber = spacedLetter
     ? rawBuilding.replace(/\s+/g, " ")
-    : rawBuilding.replace(/\s*-\s*/g, "-").replace(/\s+/g, "");
+    : rawBuilding.replace(/\s*-\s*/g, "-").replace(/\s*\/\s*/g, "/").replace(/\s+/g, "");
   if (numbers > 2) return { street, buildingNumber, confidence: 0.35, ambiguous: true };
-  if (numbers === 2 && !/^\d+\s*-\s*\d+$/.test(rawBuilding)) {
+  if (numbers === 2 && !range) {
     return { street, buildingNumber, confidence: 0.4, ambiguous: true };
   }
   return {
     street,
     buildingNumber,
-    confidence: /^\d+\s+[A-Za-z]$/.test(rawBuilding) ? 0.9 : 0.97,
+    confidence: spacedLetter ? 0.9 : 0.97,
     ambiguous: false,
   };
 }

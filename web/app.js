@@ -1,4 +1,4 @@
-import { isPdf } from "@qr-invoice/core";
+import { createOutputFilename, isPdf } from "@qr-invoice/core";
 import { convert } from "@qr-invoice/pdf";
 import { project, setStatus } from "./render.js";
 
@@ -113,7 +113,7 @@ async function download(kind) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${item.name}-structured.${kind === "pdf" ? "pdf" : "txt"}`;
+  a.download = createOutputFilename(item.name, kind);
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -137,3 +137,14 @@ drop.addEventListener("drop", event => {
 acceptBtn.addEventListener("click", () => void run(true));
 spcBtn.addEventListener("click", () => void download("spc"));
 pdfBtn.addEventListener("click", () => void download("pdf"));
+
+const apiEl = document.getElementById("api-status");
+if (apiEl) {
+  fetch("/api/health")
+    .then(res => {
+      apiEl.textContent = res.ok ? "JSON API: up (optional)" : "JSON API: down — conversion stays in this tab";
+    })
+    .catch(() => {
+      apiEl.textContent = "JSON API: down — conversion stays in this tab";
+    });
+}

@@ -1,11 +1,13 @@
 /**
- * Optional static file server. Does not parse invoices and does not load PDF libraries.
+ * Optional static file server plus a tiny JSON API.
+ * Never loads PDF libraries, never stores invoices, never logs IBAN or addresses.
  */
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { handleApi } from "./api.js";
 
 /**
  * @param { string } file
@@ -55,7 +57,7 @@ export function serveStatic(options) {
     void handle(options.dist, req, res);
   });
   server.listen(port, host, () => {
-    console.log(`Static UI http://${host}:${port} — files only, no conversion`);
+    console.log(`UI+JSON API http://${host}:${port} — convert stays in the browser`);
   });
   return server;
 }
@@ -66,6 +68,7 @@ export function serveStatic(options) {
  * @param { import("node:http").ServerResponse } res
  */
 async function handle(dist, req, res) {
+  if (await handleApi(req, res)) return;
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.writeHead(405);
     res.end();

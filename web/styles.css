@@ -103,8 +103,19 @@ dl {
   margin: 0 0 1rem;
 }
 
-dt {
+dd input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  background: var(--card);
+}
+
+dd input.locked {
+  background: #eee;
   color: var(--muted);
+  cursor: default;
 }
 
 ul {

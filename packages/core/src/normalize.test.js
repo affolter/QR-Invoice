@@ -31,8 +31,10 @@ describe("parseStreetLine (plan fixtures)", () => {
     ["Musterstrasse 12 A", "Musterstrasse", "12 A", false],
     ["Seestrasse 8 B", "Seestrasse", "8 B", false],
     ["Musterstrasse 12-14", "Musterstrasse", "12-14", false],
+    ["Musterstrasse 12/14", "Musterstrasse", "12/14", false],
     ["Rue du Lac 12", "Rue du Lac", "12", false],
     ["Chemin de la Gare 4bis", "Chemin de la Gare", "4bis", false],
+    ["Chemin de la Gare 4 bis", "Chemin de la Gare", "4 bis", false],
   ];
   for (const [input, street, building, ambiguous] of fixtures) {
     it(input, () => {

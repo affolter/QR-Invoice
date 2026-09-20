@@ -12,5 +12,6 @@ export { parseQrPayload, extractSwissQrPayload } from "./parse.js";
 export { normalizeAddress, normalizeInvoice, parseStreetLine } from "./normalize.js";
 export { validateInvoice } from "./validate.js";
 export { buildQrPayload } from "./build.js";
+export { createOutputFilename } from "./filename.js";
 export { analyze, canWrite, convert } from "./backend.js";
 export { isPdf } from "./pdfMagic.js";
