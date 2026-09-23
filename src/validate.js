@@ -14,6 +14,8 @@
  * } } ValidationResult
  */
 
+
+
 /**
  * @param   { string } digits
  * @returns { number }
