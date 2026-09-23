@@ -1,11 +1,20 @@
-/** @import { EitherType } from "./index.js" */
+/** @import { EitherType } from "../index.js" */
 
 import jsQR from "jsqr";
-import { left, right } from "./index.js";
+import { left, right } from "../index.js";
 
 /**
- * @typedef { { x: number, y: number, width: number, height: number, pageIndex: number } } QrBox
- * @typedef { { payload: string, box: QrBox } } PdfQr
+ * @typedef { {
+ *   x:         number,
+ *   y:         number,
+ *   width:     number,
+ *   height:    number,
+ *   pageIndex: number,
+ * } } QrBox
+ * @typedef { {
+ *   payload: string,
+ *   box:     QrBox,
+ * } } PdfQr
  */
 
 /**
@@ -150,10 +159,10 @@ async function imageBoxes(page, OPS) {
     else if (fn === OPS.transform && args.length >= 6) ctm = mul(ctm, args);
     else if (fn === OPS.paintImageXObject && typeof args[0] === "string") {
       boxes.set(args[0], {
-        x: ctm[4],
-        y: ctm[5],
-        width: Math.abs(ctm[0]),
-        height: Math.abs(ctm[3]),
+        x:         ctm[4],
+        y:         ctm[5],
+        width:     Math.abs(ctm[0]),
+        height:    Math.abs(ctm[3]),
         pageIndex: 0,
       });
     }
@@ -180,7 +189,7 @@ function getImage(page, name) {
  * @param { Uint8Array } bytes
  * @returns { Promise<EitherType<string, PdfQr>> }
  */
-export async function extractSwissQrFromPdf(bytes) {
+export const extractSwissQrFromPdf = async bytes => {
   /** @type { { numPages: number, getPage: (n: number) => Promise<unknown>, destroy: () => Promise<void> } | undefined } */
   let doc;
   try {
@@ -193,7 +202,7 @@ export async function extractSwissQrFromPdf(bytes) {
         isEvalSupported: false,
       }),
     ).promise;
-    /** @type { import("./pdfQr.js").PdfQr | null } */
+    /** @type { PdfQr | null } */
     let found = null;
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
       const page = /** @type { import("pdfjs-dist").PDFPageProxy } */ (await doc.getPage(pageNumber));
@@ -219,4 +228,4 @@ export async function extractSwissQrFromPdf(bytes) {
   } finally {
     if (doc) await doc.destroy();
   }
-}
+};

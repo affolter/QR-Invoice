@@ -1,0 +1,29 @@
+---
+description: Write JS as expressions — arrows, constructors, no leftover mutation
+alwaysApply: true
+---
+
+# Expression-oriented JS
+
+Prefer `export const f = … =>` over `export function`. Keep JSDoc; this is JS + `checkJs`, not TypeScript syntax.
+
+Return a new value. Do not push, assign, or `delete` on an object you already built (`Converted`, `Party`, extras after EPD). Sequential I/O may use `let`.
+
+```js
+// ❌ mutate then join
+const lastUsed = extras.reduce((last, value, index) => (value ? index : last), -1);
+for (let i = 0; i <= lastUsed; i += 1) fields.push(empty(extras[i]));
+return fields.join("\n");
+
+// ✅ same meaning as data
+return fields
+  .concat(extras.slice(0, extras.findLastIndex(Boolean) + 1))
+  .join("\n");
+```
+
+- Nullish: `??` and `== null` / `!= null`, not `||` unless empty string must count as missing.
+- Constructors (`party`, `parsedAddress`, `invoice`, `missing`) fill every key. Do not hand-build half-empty objects. `missing()` is an object literal; do not call `field(null)`.
+- `InvoiceData` strings that can be blank are `""`. Amount `null` is open-amount. Debtor `null` is no debtor. `buildQrPayload` only encodes; it does not fill defaults. `EMPTY_ADDRESS` is the SPC slot for a missing debtor / unused ultimate creditor — not an empty `Party` (`Party` would default type to `S`).
+- Named destructure in spec order (`addressFields`). Not `Object.values`.
+- `Array(n).fill("")` is fine for fixed-width empty lines.
+- Do not rewrite IBAN, amount, currency, or reference.

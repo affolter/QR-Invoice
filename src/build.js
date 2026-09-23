@@ -1,47 +1,64 @@
 /** @import { InvoiceData, Party } from "./models.js" */
 
-/** @param { string | undefined } value @returns { string } @pure */
-const empty = value => value ?? "";
-
 /**
+ * Seven SPC address lines, in spec order.
  * @param   { Party } party
  * @returns { string[] }
  * @pure
  */
-function addressFields(party) {
-  return ["S", party.name, empty(party.street), empty(party.buildingNumber), empty(party.postalCode), empty(party.city), party.country];
-}
+const addressFields = ({
+  addressType,
+  name,
+  street,
+  buildingNumber,
+  postalCode,
+  city,
+  country,
+}) => [
+  addressType,
+  name,
+  street,
+  buildingNumber,
+  postalCode,
+  city,
+  country,
+];
+
+/** Spec slots that are not InvoiceData: unused ultimate creditor, and a missing debtor. */
+const EMPTY_ADDRESS           = Array(7).fill("");
+const EMPTY_ULTIMATE_CREDITOR = EMPTY_ADDRESS;
 
 /**
- * Swiss QR-bill SPC payload (IG master version 02). No third-party library.
+ * Swiss QR-bill SPC payload (IG master version 02). Inverse of parse: named invoice → line list → join.
  * @param   { InvoiceData } invoice
  * @returns { string }
  * @pure
  */
-export function buildQrPayload(invoice) {
+export const buildQrPayload = invoice => {
   const fields = [
     "SPC",
-    invoice.qrVersion || "0200",
+    invoice.qrVersion,
     "1",
     invoice.account,
     ...addressFields(invoice.creditor),
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    invoice.amount === undefined ? "" : invoice.amount.toFixed(2),
+    ...EMPTY_ULTIMATE_CREDITOR,
+    invoice.amount == null ? "" : invoice.amount.toFixed(2),
     invoice.currency,
-    ...(invoice.debtor ? addressFields(invoice.debtor) : ["", "", "", "", "", "", ""]),
+    ...(invoice.debtor ? addressFields(invoice.debtor) : EMPTY_ADDRESS),
     invoice.referenceType,
-    empty(invoice.reference),
-    empty(invoice.message),
+    invoice.reference,
+    invoice.message,
     "EPD",
   ];
-  const extras = [invoice.additionalInformation, invoice.av1, invoice.av2];
-  const lastUsed = extras.reduce((last, value, index) => (value ? index : last), -1);
-  for (let i = 0; i <= lastUsed; i += 1) fields.push(empty(extras[i]));
-  return fields.join("\n");
-}
+
+  const extras = [
+    invoice.addInfos,
+    invoice.av1,
+    invoice.av2,
+  ];
+
+  // Keep extras through the last used line; drop unused trailing lines after EPD.
+  return fields
+    .concat(extras.slice(0, extras.findLastIndex(Boolean) + 1))
+    .join("\n");
+};

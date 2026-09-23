@@ -1,50 +1,53 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { analyze, canWrite } from "./backend.js";
+import { TestSuite } from "../kolibri/util/test.js";
+import { analyze, canWrite } from "./convert.js";
 import { unwrap } from "./either.js";
-import { reviewPayload } from "./fixtures.js";
+import { reviewPayload } from "./synthetic.js";
 import { applyAddressReview } from "./review.js";
 
-describe("applyAddressReview", () => {
-  it("blocks write until the ambiguous street is reviewed", () => {
-    const result = unwrap(analyze(reviewPayload()));
-    assert.ok(result.review.some(item => item.path === "creditor.street"));
-    assert.equal(canWrite(result, {}).ok, false);
-    assert.equal(result.invoice?.account, "CH4431999123000889012");
-  });
+const suite = TestSuite("applyAddressReview");
 
-  it("applies address edits and leaves money fields alone", () => {
-    const result = unwrap(analyze(reviewPayload()));
-    assert.ok(result.invoice);
-    const applied = applyAddressReview(result.invoice, {
-      "creditor.street": "Bahnhofstrasse",
-      "creditor.buildingNumber": "12",
-      account: "CH9300762011623852957",
-      amount: "1.00",
-      currency: "EUR",
-      reference: "000",
-      referenceType: "NON",
-      "creditor.account": "AT123",
-    });
-    assert.equal(applied.invoice.creditor.street, "Bahnhofstrasse");
-    assert.equal(applied.invoice.creditor.buildingNumber, "12");
-    assert.equal(applied.invoice.account, result.invoice.account);
-    assert.equal(applied.invoice.creditor.account, result.invoice.account);
-    assert.equal(applied.invoice.amount, result.invoice.amount);
-    assert.equal(applied.invoice.currency, result.invoice.currency);
-    assert.equal(applied.invoice.reference, result.invoice.reference);
-    assert.equal(applied.invoice.referenceType, result.invoice.referenceType);
-    assert.equal(applied.review.length, 0);
-    assert.equal(applied.validation.valid, true);
-    assert.equal(canWrite(applied, {}).ok, true);
-  });
-
-  it("does not share nested party objects with the source invoice", () => {
-    const result = unwrap(analyze(reviewPayload()));
-    assert.ok(result.invoice);
-    const applied = applyAddressReview(result.invoice, { "creditor.city": "Bern" });
-    assert.notEqual(applied.invoice.creditor, result.invoice.creditor);
-    assert.equal(result.invoice.creditor.city, "Zürich");
-    assert.equal(applied.invoice.creditor.city, "Bern");
-  });
+suite.add("blocks write until the ambiguous street is reviewed", assert => {
+  const result = unwrap(analyze(reviewPayload()));
+  assert.isTrue(result.review.some(item => item.path === "creditor.street"));
+  assert.is(canWrite(result, {}).ok, false);
+  assert.is(result.invoice?.account, "CH4431999123000889012");
 });
+
+suite.add("applies address edits and leaves money fields alone", assert => {
+  const result = unwrap(analyze(reviewPayload()));
+  assert.isTrue(result.invoice != null);
+  if (!result.invoice) return;
+  const applied = applyAddressReview(result.invoice, {
+    "creditor.street":         "Bahnhofstrasse",
+    "creditor.buildingNumber": "12",
+    account:                   "CH9300762011623852957",
+    amount:                    "1.00",
+    currency:                  "EUR",
+    reference:                 "000",
+    referenceType:             "NON",
+    "creditor.account":        "AT123",
+  });
+  assert.is(applied.invoice.creditor.street, "Bahnhofstrasse");
+  assert.is(applied.invoice.creditor.buildingNumber, "12");
+  assert.is(applied.invoice.account, result.invoice.account);
+  assert.is(applied.invoice.creditor.account, result.invoice.account);
+  assert.is(applied.invoice.amount, result.invoice.amount);
+  assert.is(applied.invoice.currency, result.invoice.currency);
+  assert.is(applied.invoice.reference, result.invoice.reference);
+  assert.is(applied.invoice.referenceType, result.invoice.referenceType);
+  assert.is(applied.review.length, 0);
+  assert.is(applied.validation.valid, true);
+  assert.is(canWrite(applied, {}).ok, true);
+});
+
+suite.add("does not share nested party objects with the source invoice", assert => {
+  const result = unwrap(analyze(reviewPayload()));
+  assert.isTrue(result.invoice != null);
+  if (!result.invoice) return;
+  const applied = applyAddressReview(result.invoice, { "creditor.city": "Bern" });
+  assert.isTrue(applied.invoice.creditor !== result.invoice.creditor);
+  assert.is(result.invoice.creditor.city, "Zürich");
+  assert.is(applied.invoice.creditor.city, "Bern");
+});
+
+suite.run();

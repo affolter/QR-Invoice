@@ -10,8 +10,7 @@
     <main>
       <h1>Swiss QR Invoice Migration Tool</h1>
       <p class="lead">
-        Drop one or many SPC texts or PDFs with an embedded QR. Further drops append to the list.
-        Conversion runs in this tab — nothing is uploaded.
+        Drop SPC text or PDFs with an embedded QR. Conversion runs in this tab — nothing is uploaded.
         IBAN, amount, currency, and reference are never rewritten. Combined address type K becomes S;
         house numbers like <code>8 B</code> stay <code>8 B</code>.
       </p>
@@ -19,7 +18,7 @@
       <label class="drop" id="drop">
         <input id="file" type="file" multiple accept=".txt,.spc,.pdf,application/pdf,text/plain" />
         <strong>Drop files here</strong>
-        <span>or click to choose .txt / .spc / .pdf — multiple files stay in the list</span>
+        <span>or click to choose .txt / .spc / .pdf</span>
       </label>
       <p>
         <button id="example" type="button">Load example that needs review</button>

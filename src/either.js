@@ -27,19 +27,17 @@ export const left = error => ({ ok: false, error });
  * @param   { EitherType<string, _A_> } e
  * @returns { _A_ }
  */
-export function unwrap(e) {
+export const unwrap = e => {
   if (!e.ok) throw new Error(e.error);
   return e.value;
-}
+};
 
 /**
  * @template _A_
  * @template _B_
- * @param   { EitherType<string, _A_> }                    e
- * @param   { function(_A_): EitherType<string, _B_> }     f
+ * @param   { EitherType<string, _A_> }                e
+ * @param   { function(_A_): EitherType<string, _B_> } f
  * @returns { EitherType<string, _B_> }
  * @pure
  */
-export function andThen(e, f) {
-  return e.ok ? f(e.value) : e;
-}
+export const andThen = (e, f) => (e.ok ? f(e.value) : e);

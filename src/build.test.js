@@ -1,24 +1,26 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { unwrap } from "./either.js";
-import { buildQrPayload } from "./build.js";
-import { buildSwissQrPayload } from "./fixtures.js";
-import { normalizeInvoice } from "./normalize.js";
-import { parseQrPayload } from "./parse.js";
+import { TestSuite }           from "../kolibri/util/test.js";
+import { unwrap }              from "./either.js";
+import { buildQrPayload }      from "./build.js";
+import { buildSwissQrPayload } from "./synthetic.js";
+import { normalizeInvoice }    from "./normalize.js";
+import { parseQrPayload }      from "./parse.js";
 
-describe("buildQrPayload", () => {
-  it("emits SPC text and round-trips structured fields without changing the IBAN", () => {
-    const { invoice } = normalizeInvoice(unwrap(parseQrPayload(buildSwissQrPayload())));
-    assert.ok(invoice);
-    const built = buildQrPayload(invoice);
-    assert.match(built, /^SPC\n0200\n1\n/);
-    const again = unwrap(parseQrPayload(built));
-    assert.equal(again.account.value, invoice.account);
-    assert.equal(again.amount.value, invoice.amount);
-    assert.equal(again.currency.value, invoice.currency);
-    assert.equal(again.reference.value, invoice.reference);
-    assert.equal(again.creditor.addressType.value, "S");
-    assert.equal(again.creditor.street.value, "Rue du Lac");
-    assert.equal(again.creditor.buildingNumber.value, "1268");
-  });
+const suite = TestSuite("buildQrPayload");
+
+suite.add("emits SPC text and round-trips structured fields without changing the IBAN", assert => {
+  const { invoice } = normalizeInvoice(unwrap(parseQrPayload(buildSwissQrPayload())));
+  assert.isTrue(invoice != null);
+  if (!invoice) return;
+  const built = buildQrPayload(invoice);
+  assert.isTrue(/^SPC\n0200\n1\n/.test(built));
+  const again = unwrap(parseQrPayload(built));
+  assert.is(again.account.value, invoice.account);
+  assert.is(again.amount.value, invoice.amount);
+  assert.is(again.currency.value, invoice.currency);
+  assert.is(again.reference.value, invoice.reference);
+  assert.is(again.creditor.addressType.value, "S");
+  assert.is(again.creditor.street.value, "Rue du Lac");
+  assert.is(again.creditor.buildingNumber.value, "1268");
 });
+
+suite.run();

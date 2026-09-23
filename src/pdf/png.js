@@ -8,7 +8,7 @@
  * @returns { Uint8Array }
  * @pure
  */
-export function encodePng(rgba, width, height) {
+export const encodePng = (rgba, width, height) => {
   const raw = new Uint8Array(height * (1 + width * 4));
   for (let y = 0; y < height; y += 1) {
     const dest = y * (1 + width * 4);
@@ -23,7 +23,7 @@ export function encodePng(rgba, width, height) {
   const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
   const chunks = [pngChunk("IHDR", ihdr), pngChunk("IDAT", zlibStore(raw)), pngChunk("IEND", new Uint8Array(0))];
   return concat([signature, ...chunks]);
-}
+};
 
 /**
  * @param { string } type

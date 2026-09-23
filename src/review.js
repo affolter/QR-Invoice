@@ -1,6 +1,7 @@
 /** @import { InvoiceData, Party } from "./models.js" */
 /** @import { ValidationResult } from "./validate.js" */
 
+import { invoice } from "./models.js";
 import { validateInvoice } from "./validate.js";
 
 /** Paths the review UI may never change. */
@@ -17,73 +18,53 @@ const ADDRESS_PATH = /^(creditor|debtor)\.(name|street|buildingNumber|postalCode
 
 /**
  * @typedef { {
- *   invoice: InvoiceData,
- *   validation: ValidationResult,
- *   review: [],
+ *   invoice:     InvoiceData,
+ *   validation:  ValidationResult,
+ *   review:      [],
  * } } ReviewedInvoice
  */
 
 /**
- * @param   { InvoiceData } invoice
- * @returns { InvoiceData }
+ * @param   { Party }                               party
+ * @param   { Exclude<keyof Party, "addressType"> } key
+ * @param   { string }                              value
+ * @returns { Party }
  * @pure
  */
-function cloneInvoice(invoice) {
-  return {
-    ...invoice,
-    creditor: { ...invoice.creditor },
-    ...(invoice.debtor ? { debtor: { ...invoice.debtor } } : {}),
-  };
-}
+const withPartyField = (party, key, value) => ({ ...party, [key]: value });
 
 /**
- * @param { Party } party
- * @param { keyof Party } key
- * @param { string } value
+ * @param   { Party }                  party
+ * @param   { "creditor" | "debtor" }  role
+ * @param   { Record<string, string> } patches
+ * @returns { Party }
+ * @pure
  */
-function setPartyField(party, key, value) {
-  if (key === "name" || key === "country" || key === "account") {
-    party[key] = value;
-    return;
-  }
-  if (!value) {
-    delete party[key];
-    return;
-  }
-  party[key] = value;
-}
+const applyPartyPatches = (party, role, patches) =>
+  Object.entries(patches).reduce((next, [path, raw]) => {
+    if (LOCKED.has(path) || !ADDRESS_PATH.test(path)) return next;
+    const [partyKey, field] = path.split(".");
+    if (partyKey !== role || !field) return next;
+    return withPartyField(next, /** @type { Exclude<keyof Party, "addressType"> } */ (field), raw.trim());
+  }, party);
 
 /**
  * Copy structured address edits. IBAN, amount, currency, and reference stay as they were.
  *
- * @param   { InvoiceData }            invoice
+ * @param   { InvoiceData }            current
  * @param   { Record<string, string> } patches
  * @returns { ReviewedInvoice }
  * @pure
  */
-export function applyAddressReview(invoice, patches) {
-  const next = cloneInvoice(invoice);
-  for (const [path, raw] of Object.entries(patches)) {
-    if (LOCKED.has(path) || !ADDRESS_PATH.test(path)) continue;
-    const value = raw.trim();
-    const [partyKey, field] = path.split(".");
-    if (partyKey === "creditor" && field) {
-      setPartyField(next.creditor, /** @type { keyof Party } */ (field), value);
-    } else if (partyKey === "debtor" && field && next.debtor) {
-      setPartyField(next.debtor, /** @type { keyof Party } */ (field), value);
-    }
-  }
-  next.creditor.account = invoice.account;
-  next.account = invoice.account;
-  next.currency = invoice.currency;
-  next.referenceType = invoice.referenceType;
-  if (invoice.amount !== undefined) next.amount = invoice.amount;
-  else delete next.amount;
-  if (invoice.reference !== undefined) next.reference = invoice.reference;
-  else delete next.reference;
+export const applyAddressReview = (current, patches) => {
+  const next = invoice({
+    ...current,
+    creditor: applyPartyPatches(current.creditor, "creditor", patches),
+    debtor:   current.debtor ? applyPartyPatches(current.debtor, "debtor", patches) : null,
+  });
   return {
-    invoice: next,
+    invoice:    next,
     validation: validateInvoice(next),
-    review: [],
+    review:     [],
   };
-}
+};

@@ -6,13 +6,13 @@
   "type": "module",
   "license": "Apache-2.0",
   "bin": {
-    "invoice-converter": "./src/cli.js"
+    "invoice-converter": "./cli/cli.js"
   },
   "scripts": {
-    "cli": "node src/cli.js",
+    "cli": "node cli/cli.js",
     "web": "vite",
     "build": "vite build",
-    "test": "tsc -p jsconfig.json --noEmit && node --test src/*.test.js web/*.test.js",
+    "test": "tsc -p jsconfig.json --noEmit && node run-tests.js",
     "typecheck": "tsc -p jsconfig.json --noEmit"
   },
   "engines": {

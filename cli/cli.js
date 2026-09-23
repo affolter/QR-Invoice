@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-/** @import { Converted, ConvertInputOptions, EitherType } from "./index.js" */
+/** @import { Converted, ConvertInputOptions, EitherType } from "../src/index.js" */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { canWrite, left, right } from "./index.js";
-import { convert } from "./pdf.js";
+import { canWrite, left, right } from "../src/index.js";
+import { convert } from "../src/pdf/index.js";
 
 /**
  * @typedef { Converted & { outputPath?: string } } ConversionResult
@@ -14,8 +14,7 @@ import { convert } from "./pdf.js";
  */
 
 /** @returns { string } @pure */
-function helpText() {
-  return `invoice-converter <old.txt|old.pdf> --output <new.txt|new.pdf>
+const helpText = () => `invoice-converter <old.txt|old.pdf> --output <new.txt|new.pdf>
 
   Optional local tool. The product is the in-browser page (npm run web).
 
@@ -26,51 +25,55 @@ function helpText() {
   --accept-review   write even if address fields need review
   --strict          treat warnings as fatal
 `;
-}
 
 /**
  * @param   { string[] } argv
  * @returns { EitherType<string, CliArgs | "help"> }
  * @pure
  */
-export function parseArgs(argv) {
+export const parseArgs = argv => {
   const args = argv.slice(2);
   if (args.includes("--help") || args.includes("-h")) return right("help");
   if (args.length === 0) return left(helpText().trimEnd());
   let input;
   let output;
   let acceptReview = false;
-  let strict = false;
+  let strict       = false;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === "--output" || arg === "-o") {
       output = args[++i];
       if (!output) return left("Missing value for --output");
     } else if (arg === "--accept-review") acceptReview = true;
-    else if (arg === "--strict") strict = true;
-    else if (arg && !arg.startsWith("-")) input = arg;
+    else if (arg === "--strict")          strict       = true;
+    else if (arg && !arg.startsWith("-")) input        = arg;
     else return left(`Unknown option: ${arg}`);
   }
   if (!input || !output) return left(helpText().trimEnd());
-  return right({ input: resolve(input), outputPath: resolve(output), acceptReview, strict });
-}
+  return right({
+    input:         resolve(input),
+    outputPath:    resolve(output),
+    acceptReview,
+    strict,
+  });
+};
 
 /**
  * @param   { string }         rawQr
  * @param   { ConvertOptions } options
  * @returns { Promise<EitherType<string, ConversionResult>> }
  */
-export async function convertQrPayload(rawQr, options) {
+export const convertQrPayload = async (rawQr, options) => {
   const wantPdf = options.outputPath.toLowerCase().endsWith(".pdf");
   return finish(await convert(rawQr, { ...options, output: wantPdf ? "pdf" : "spc" }), options.outputPath);
-}
+};
 
 /**
  * @param   { string }         inputPath
  * @param   { ConvertOptions } options
  * @returns { Promise<EitherType<string, ConversionResult>> }
  */
-export async function convertInvoiceFile(inputPath, options) {
+export const convertInvoiceFile = async (inputPath, options) => {
   let bytes;
   try {
     bytes = Uint8Array.from(await readFile(inputPath));
@@ -79,16 +82,16 @@ export async function convertInvoiceFile(inputPath, options) {
   }
   const wantPdf = options.outputPath.toLowerCase().endsWith(".pdf");
   return finish(await convert(bytes, { ...options, output: wantPdf ? "pdf" : "spc" }), options.outputPath);
-}
+};
 
 /**
- * @param { EitherType<string, Converted> } converted
- * @param { string } outputPath
+ * @param   { EitherType<string, Converted> } converted
+ * @param   { string }                        outputPath
  * @returns { Promise<EitherType<string, ConversionResult>> }
  */
-async function finish(converted, outputPath) {
+const finish = async (converted, outputPath) => {
   if (!converted.ok) return converted;
-  const result = /** @type { ConversionResult } */ ({ ...converted.value });
+  const result = converted.value;
   if (!result.bytes) return right(result);
   try {
     await mkdir(dirname(outputPath), { recursive: true });
@@ -96,15 +99,14 @@ async function finish(converted, outputPath) {
   } catch (error) {
     return left(error instanceof Error ? error.message : String(error));
   }
-  result.outputPath = outputPath;
-  return right(result);
-}
+  return right({ ...result, outputPath });
+};
 
 /**
  * @param   { string[] } argv
  * @returns { Promise<number> }
  */
-export async function runCli(argv) {
+export const runCli = async argv => {
   const parsed = parseArgs(argv);
   if (!parsed.ok) {
     console.error(parsed.error);
@@ -121,7 +123,7 @@ export async function runCli(argv) {
   }
   const result = converted.value;
   for (const issue of result.validation.issues) console.error(`  [${issue.severity}] ${issue.code}`);
-  for (const item of result.review) console.error(`  review: ${item.path}`);
+  for (const item  of result.review)            console.error(`  review: ${item.path}`);
   const gate = canWrite(result, parsed.value);
   if (!gate.ok) {
     console.error(gate.error);
@@ -129,7 +131,7 @@ export async function runCli(argv) {
   }
   console.log(`Wrote ${result.outputPath}`);
   return 0;
-}
+};
 
 const entry = process.argv[1];
 if (entry && import.meta.url === pathToFileURL(resolve(entry)).href) {

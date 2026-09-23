@@ -1,9 +1,9 @@
-/** @import { InvoiceData } from "./index.js" */
-/** @import { QrBox } from "./pdfQr.js" */
+/** @import { InvoiceData } from "../index.js" */
+/** @import { QrBox } from "./qr.js" */
 
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import QRCode from "qrcode";
-import { buildQrPayload } from "./index.js";
+import { buildQrPayload } from "../index.js";
 import { encodePng } from "./png.js";
 
 /**
@@ -40,7 +40,7 @@ function stampSwissCross(data, size) {
  * @param { number } [px=512]
  * @returns { Uint8Array }
  */
-export function swissQrPng(payload, px = 512) {
+export const swissQrPng = (payload, px = 512) => {
   const qr = QRCode.create(payload, { errorCorrectionLevel: "M" });
   const n = qr.modules.size;
   const scale = Math.max(1, Math.floor(px / n));
@@ -63,14 +63,14 @@ export function swissQrPng(payload, px = 512) {
   }
   stampSwissCross(data, size);
   return encodePng(data, size, size);
-}
+};
 
 /**
  * @param { InvoiceData } invoice
  * @param { { originalPdf?: Uint8Array, qrBox?: QrBox } } [options]
  * @returns { Promise<Uint8Array> }
  */
-export async function buildInvoicePdf(invoice, options = {}) {
+export const buildInvoicePdf = async (invoice, options = {}) => {
   const payload = buildQrPayload(invoice);
   const qrBytes = swissQrPng(payload);
   if (options.originalPdf && options.qrBox) {
@@ -98,10 +98,10 @@ export async function buildInvoicePdf(invoice, options = {}) {
   page.drawText("Swiss QR-bill (structured address)", { x: 48, y: 792, size: 14, font: bold });
   page.drawText(`${invoice.creditor.name}  ·  ${invoice.account}`, { x: 48, y: 768, size: 10, font });
   page.drawText(
-    `${invoice.amount === undefined ? "open" : invoice.amount.toFixed(2)} ${invoice.currency}  ·  ${invoice.referenceType} ${invoice.reference ?? ""}`,
+    `${invoice.amount == null ? "open" : invoice.amount.toFixed(2)} ${invoice.currency}  ·  ${invoice.referenceType} ${invoice.reference}`,
     { x: 48, y: 752, size: 10, font },
   );
   if (invoice.debtor) page.drawText(`Debtor: ${invoice.debtor.name}`, { x: 48, y: 736, size: 10, font });
   page.drawImage(image, { x: 190.92, y: 120, width: 128.4, height: 128.4 });
   return pdf.save();
-}
+};

@@ -1,26 +1,26 @@
-/** @import { ConvertInputOptions, Converted, EitherType, InvoiceData } from "./index.js" */
+/** @import { ConvertInputOptions, Converted, EitherType, InvoiceData } from "../index.js" */
 
-import { analyze, buildQrPayload, canWrite, extractSwissQrPayload, isPdf, left, right } from "./index.js";
-import { extractSwissQrFromPdf } from "./pdfQr.js";
-import { buildInvoicePdf } from "./pdfWrite.js";
+import { analyze, asBytes, buildQrPayload, canWrite, extractSwissQrPayload, isPdf, left, right } from "../index.js";
+import { extractSwissQrFromPdf } from "./qr.js";
+import { buildInvoicePdf } from "./write.js";
 
-export { extractSwissQrFromPdf } from "./pdfQr.js";
-export { swissQrPng } from "./pdfWrite.js";
+export { extractSwissQrFromPdf } from "./qr.js";
+export { swissQrPng } from "./write.js";
 
 /**
  * Emit SPC or PDF bytes from already-reviewed InvoiceData. Re-extracts the QR box if needed.
  *
  * @param   { InvoiceData } invoice
  * @param   { {
- *   output?: "pdf" | "spc" | "auto",
+ *   output?:      "pdf" | "spc" | "auto",
  *   originalPdf?: Uint8Array,
- *   qrBox?: import("./pdfQr.js").QrBox,
+ *   qrBox?:       import("./qr.js").QrBox,
  * } } [options]
  * @returns { Promise<EitherType<string, { bytes: Uint8Array, mediaType: "application/pdf" | "text/plain;charset=utf-8" }>> }
  */
-export async function writeInvoice(invoice, options = {}) {
+export const writeInvoice = async (invoice, options = {}) => {
   try {
-    /** @type { import("./pdfQr.js").QrBox | undefined } */
+    /** @type { import("./qr.js").QrBox | undefined } */
     let qrBox = options.qrBox;
     const originalPdf = options.originalPdf;
     const wantPdf = options.output === "pdf" || (options.output !== "spc" && Boolean(originalPdf));
@@ -30,18 +30,18 @@ export async function writeInvoice(invoice, options = {}) {
     }
     if (wantPdf) {
       return right({
-        bytes: await buildInvoicePdf(invoice, { originalPdf, qrBox }),
+        bytes:     await buildInvoicePdf(invoice, { originalPdf, qrBox }),
         mediaType: "application/pdf",
       });
     }
     return right({
-      bytes: new TextEncoder().encode(buildQrPayload(invoice)),
+      bytes:     new TextEncoder().encode(buildQrPayload(invoice)),
       mediaType: "text/plain;charset=utf-8",
     });
   } catch (error) {
     return left(error instanceof Error ? error.message : String(error));
   }
-}
+};
 
 /**
  * PDF-capable in-memory convert. Loads pdfjs / pdf-lib / jsqr / qrcode.
@@ -50,19 +50,14 @@ export async function writeInvoice(invoice, options = {}) {
  * @param   { ConvertInputOptions }               [options]
  * @returns { Promise<EitherType<string, Converted>> }
  */
-export async function convert(input, options = {}) {
-  const bytes =
-    typeof input === "string"
-      ? new TextEncoder().encode(input)
-      : input instanceof Uint8Array
-        ? input
-        : new Uint8Array(input);
+export const convert = async (input, options = {}) => {
+  const bytes = asBytes(input);
 
   /** @type { string } */
   let rawQr;
   /** @type { Uint8Array | undefined } */
   let originalPdf;
-  /** @type { import("./pdfQr.js").QrBox | undefined } */
+  /** @type { import("./qr.js").QrBox | undefined } */
   let qrBox;
   if (isPdf(bytes)) {
     const qr = await extractSwissQrFromPdf(bytes);
@@ -84,7 +79,9 @@ export async function convert(input, options = {}) {
 
   const written = await writeInvoice(gate.value, { output: options.output, originalPdf, qrBox });
   if (!written.ok) return written;
-  result.bytes = written.value.bytes;
-  result.mediaType = written.value.mediaType;
-  return right(result);
-}
+  return right({
+    ...result,
+    bytes:     written.value.bytes,
+    mediaType: written.value.mediaType,
+  });
+};

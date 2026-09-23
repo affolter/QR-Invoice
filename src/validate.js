@@ -2,8 +2,16 @@
 
 /**
  * @typedef { "error" | "warning" } Severity
- * @typedef { { severity: Severity, code: string, field: string, message: string } } Issue
- * @typedef { { valid: boolean, issues: Issue[] } } ValidationResult
+ * @typedef { {
+ *   severity: Severity,
+ *   code:     string,
+ *   field:    string,
+ *   message:  string,
+ * } } Issue
+ * @typedef { {
+ *   valid:  boolean,
+ *   issues: Issue[],
+ * } } ValidationResult
  */
 
 /**
@@ -11,25 +19,25 @@
  * @returns { number }
  * @pure
  */
-function mod10(digits) {
+const mod10 = digits => {
   const table = [0, 9, 4, 6, 8, 2, 7, 1, 3, 5];
   let carry = 0;
   for (const char of digits) carry = table[(carry + Number(char)) % 10] ?? 0;
   return (10 - carry) % 10;
-}
+};
 
 /**
  * @param   { string } compact
  * @returns { boolean }
  * @pure
  */
-function mod97Ok(compact) {
+const mod97Ok = compact => {
   const rearranged = compact.slice(4) + compact.slice(0, 4);
   const numeric = rearranged.replace(/[A-Z]/g, ch => String(ch.charCodeAt(0) - 55));
   let remainder = 0;
   for (const char of numeric) remainder = (remainder * 10 + Number(char)) % 97;
   return remainder === 1;
-}
+};
 
 /**
  * @param   { Severity } severity
@@ -39,9 +47,12 @@ function mod97Ok(compact) {
  * @returns { Issue }
  * @pure
  */
-function issue(severity, code, field, message) {
-  return { severity, code, field, message };
-}
+const issue = (severity, code, field, message) => ({
+  severity,
+  code,
+  field,
+  message,
+});
 
 /**
  * @param   { string } prefix
@@ -49,7 +60,7 @@ function issue(severity, code, field, message) {
  * @returns { Issue[] }
  * @pure
  */
-function addressIssues(prefix, party) {
+const addressIssues = (prefix, party) => {
   /** @type { Issue[] } */
   const issues = [];
   /**
@@ -71,7 +82,7 @@ function addressIssues(prefix, party) {
   ];
   for (const [key, limit] of max) {
     const value = party[key];
-    if (typeof value === "string" && value.length > limit) {
+    if (value.length > limit) {
       add("error", `address.${key}`, key, `${String(key)} must be at most ${limit} characters.`);
     }
   }
@@ -79,7 +90,7 @@ function addressIssues(prefix, party) {
   if (!party.city) add("error", "address.city", "city", "City is required for a structured address.");
   if (!party.street && party.buildingNumber) add("warning", "address.street", "street", "Building number is set without a street.");
   return issues;
-}
+};
 
 /**
  * SIX QR-bill rules. Does not rewrite IBAN, amount, currency, or reference.
@@ -87,7 +98,7 @@ function addressIssues(prefix, party) {
  * @returns { ValidationResult }
  * @pure
  */
-export function validateInvoice(invoice) {
+export const validateInvoice = invoice => {
   if (!invoice) {
     return { valid: false, issues: [issue("error", "invoice.missing", "invoice", "Invoice could not be built from the QR payload.")] };
   }
@@ -103,7 +114,7 @@ export function validateInvoice(invoice) {
   if (invoice.currency !== "CHF" && invoice.currency !== "EUR") {
     issues.push(issue("error", "currency", "currency", `Currency must be CHF or EUR. ${unchanged}`));
   }
-  if (invoice.amount !== undefined) {
+  if (invoice.amount != null) {
     if (!(invoice.amount >= 0.01 && invoice.amount <= 999_999_999.99)) {
       issues.push(issue("error", "amount.range", "amount", "Amount must be between 0.01 and 999999999.99."));
     }
@@ -117,7 +128,7 @@ export function validateInvoice(invoice) {
   const iid = /^(CH|LI)\d{19}$/.test(iban) ? Number(iban.slice(4, 9)) : null;
   const qrIban = iid !== null && iid >= 30000 && iid <= 31999;
   const refType = invoice.referenceType;
-  const reference = invoice.reference ?? "";
+  const reference = invoice.reference;
   if (refType !== "QRR" && refType !== "SCOR" && refType !== "NON") {
     issues.push(issue("error", "reference.type", "referenceType", "Reference type must be QRR, SCOR, or NON."));
   }
@@ -136,9 +147,9 @@ export function validateInvoice(invoice) {
     }
   }
   if (refType === "NON" && reference) issues.push(issue("error", "reference.non", "reference", "NON reference type must not carry a structured reference."));
-  if (invoice.message && invoice.message.length > 140) issues.push(issue("error", "message.length", "message", "Unstructured message must be at most 140 characters."));
-  if (invoice.additionalInformation && invoice.additionalInformation.length > 140) {
-    issues.push(issue("error", "billingInfo.length", "additionalInformation", "Billing information must be at most 140 characters."));
+  if (invoice.message.length > 140) issues.push(issue("error", "message.length", "message", "Unstructured message must be at most 140 characters."));
+  if (invoice.addInfos.length > 140) {
+    issues.push(issue("error", "billingInfo.length", "addInfos", "Billing information must be at most 140 characters."));
   }
   issues.push(...addressIssues("creditor", invoice.creditor));
   if (invoice.debtor) issues.push(...addressIssues("debtor", invoice.debtor));
@@ -146,4 +157,4 @@ export function validateInvoice(invoice) {
     issues.push(issue("error", "iban.mismatch", "account", "Creditor account and invoice account must be identical."));
   }
   return { valid: issues.every(item => item.severity !== "error"), issues };
-}
+};

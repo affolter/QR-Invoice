@@ -1,73 +1,73 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { TestSuite } from "../kolibri/util/test.js";
 import { unwrap } from "./either.js";
-import { CH_IBAN, SCOR_REF, buildSwissQrPayload, debtorLessPayload, scorPayload } from "./fixtures.js";
+import { CH_IBAN, SCOR_REF, buildSwissQrPayload, debtorLessPayload, scorPayload } from "./synthetic.js";
 import { normalizeInvoice } from "./normalize.js";
 import { parseQrPayload } from "./parse.js";
 import { validateInvoice } from "./validate.js";
 
-describe("validateInvoice", () => {
-  /** @param { import("./fixtures.js").PayloadOverrides } [overrides] */
-  function invoiceFrom(overrides = {}) {
-    return normalizeInvoice(unwrap(parseQrPayload(buildSwissQrPayload(overrides))));
-  }
+const suite = TestSuite("validateInvoice");
 
-  it("accepts the synthetic QR-IBAN / QRR example", () => {
-    assert.equal(validateInvoice(invoiceFrom().invoice).valid, true);
-  });
+/** @param { import("./synthetic.js").PayloadOverrides } [overrides] */
+const invoiceFrom = (overrides = {}) =>
+  normalizeInvoice(unwrap(parseQrPayload(buildSwissQrPayload(overrides))));
 
-  it("rejects a QR-IBAN paired with NON without changing the IBAN", () => {
-    const { invoice } = invoiceFrom({ referenceType: "NON", reference: "" });
-    const iban = invoice?.account;
-    const result = validateInvoice(invoice);
-    assert.equal(result.valid, false);
-    assert.ok(result.issues.some(issue => issue.code === "reference.qr-iban"));
-    assert.equal(invoice?.account, iban);
-  });
-
-  it("rejects an invalid QRR check digit without rewriting the reference", () => {
-    const { invoice } = invoiceFrom({ reference: "210000000003139471430009010" });
-    const reference = invoice?.reference;
-    const result = validateInvoice(invoice);
-    assert.equal(result.valid, false);
-    assert.ok(result.issues.some(issue => issue.code === "reference.qrr.checksum"));
-    assert.equal(invoice?.reference, reference);
-  });
-
-  it("rejects a non CHF/EUR currency without mapping it", () => {
-    const { invoice } = invoiceFrom({ currency: "USD" });
-    assert.equal(invoice?.currency, "USD");
-    const result = validateInvoice(invoice);
-    assert.equal(result.valid, false);
-    assert.ok(result.issues.some(issue => issue.field === "currency"));
-  });
-
-  it("warns on an open amount instead of filling one in", () => {
-    const { invoice } = invoiceFrom({ amount: "" });
-    assert.equal(invoice?.amount, undefined);
-    const result = validateInvoice(invoice);
-    assert.equal(result.valid, true);
-    assert.ok(result.issues.some(issue => issue.code === "amount.empty"));
-  });
-
-  it("accepts a non-QR CH-IBAN with a SCOR reference and does not rewrite either", () => {
-    const { invoice } = normalizeInvoice(unwrap(parseQrPayload(scorPayload())));
-    assert.equal(invoice?.account, CH_IBAN);
-    assert.equal(invoice?.reference, SCOR_REF);
-    assert.equal(invoice?.referenceType, "SCOR");
-    assert.equal(validateInvoice(invoice).valid, true);
-  });
-
-  it("accepts a non-QR CH-IBAN with NON and does not rewrite the IBAN", () => {
-    const { invoice } = invoiceFrom({ iban: CH_IBAN, referenceType: "NON", reference: "" });
-    assert.equal(invoice?.account, CH_IBAN);
-    assert.equal(invoice?.reference, undefined);
-    assert.equal(validateInvoice(invoice).valid, true);
-  });
-
-  it("accepts a debtor-less bill", () => {
-    const { invoice } = normalizeInvoice(unwrap(parseQrPayload(debtorLessPayload())));
-    assert.equal(invoice?.debtor, undefined);
-    assert.equal(validateInvoice(invoice).valid, true);
-  });
+suite.add("accepts the synthetic QR-IBAN / QRR example", assert => {
+  assert.is(validateInvoice(invoiceFrom().invoice).valid, true);
 });
+
+suite.add("rejects a QR-IBAN paired with NON without changing the IBAN", assert => {
+  const { invoice } = invoiceFrom({ referenceType: "NON", reference: "" });
+  const iban = invoice?.account;
+  const result = validateInvoice(invoice);
+  assert.is(result.valid, false);
+  assert.isTrue(result.issues.some(issue => issue.code === "reference.qr-iban"));
+  assert.is(invoice?.account, iban);
+});
+
+suite.add("rejects an invalid QRR check digit without rewriting the reference", assert => {
+  const { invoice } = invoiceFrom({ reference: "210000000003139471430009010" });
+  const reference = invoice?.reference;
+  const result = validateInvoice(invoice);
+  assert.is(result.valid, false);
+  assert.isTrue(result.issues.some(issue => issue.code === "reference.qrr.checksum"));
+  assert.is(invoice?.reference, reference);
+});
+
+suite.add("rejects a non CHF/EUR currency without mapping it", assert => {
+  const { invoice } = invoiceFrom({ currency: "USD" });
+  assert.is(invoice?.currency, "USD");
+  const result = validateInvoice(invoice);
+  assert.is(result.valid, false);
+  assert.isTrue(result.issues.some(issue => issue.field === "currency"));
+});
+
+suite.add("warns on an open amount instead of filling one in", assert => {
+  const { invoice } = invoiceFrom({ amount: "" });
+  assert.is(invoice?.amount, null);
+  const result = validateInvoice(invoice);
+  assert.is(result.valid, true);
+  assert.isTrue(result.issues.some(issue => issue.code === "amount.empty"));
+});
+
+suite.add("accepts a non-QR CH-IBAN with a SCOR reference and does not rewrite either", assert => {
+  const { invoice } = normalizeInvoice(unwrap(parseQrPayload(scorPayload())));
+  assert.is(invoice?.account, CH_IBAN);
+  assert.is(invoice?.reference, SCOR_REF);
+  assert.is(invoice?.referenceType, "SCOR");
+  assert.is(validateInvoice(invoice).valid, true);
+});
+
+suite.add("accepts a non-QR CH-IBAN with NON and does not rewrite the IBAN", assert => {
+  const { invoice } = invoiceFrom({ iban: CH_IBAN, referenceType: "NON", reference: "" });
+  assert.is(invoice?.account, CH_IBAN);
+  assert.is(invoice?.reference, "");
+  assert.is(validateInvoice(invoice).valid, true);
+});
+
+suite.add("accepts a debtor-less bill", assert => {
+  const { invoice } = normalizeInvoice(unwrap(parseQrPayload(debtorLessPayload())));
+  assert.is(invoice?.debtor, null);
+  assert.is(validateInvoice(invoice).valid, true);
+});
+
+suite.run();

@@ -1,14 +1,15 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { TestSuite } from "../kolibri/util/test.js";
 import { createOutputFilename } from "./filename.js";
 
-describe("createOutputFilename", () => {
-  it("keeps the stem and appends -structured", () => {
-    assert.equal(createOutputFilename("affolter-27338.txt", "spc"), "affolter-27338-structured.txt");
-    assert.equal(createOutputFilename("invoice.PDF", "pdf"), "invoice-structured.pdf");
-  });
+const suite = TestSuite("createOutputFilename");
 
-  it("uses only the file name from a path", () => {
-    assert.equal(createOutputFilename("invoices/Frey Peter 2026.pdf", "pdf"), "Frey Peter 2026-structured.pdf");
-  });
+suite.add("keeps the stem and appends -structured", assert => {
+  assert.is(createOutputFilename("combined-k.txt", "spc"), "combined-k-structured.txt");
+  assert.is(createOutputFilename("invoice.PDF", "pdf"), "invoice-structured.pdf");
 });
+
+suite.add("uses only the file name from a path", assert => {
+  assert.is(createOutputFilename("invoices/Frey Peter 2026.pdf", "pdf"), "Frey Peter 2026-structured.pdf");
+});
+
+suite.run();
