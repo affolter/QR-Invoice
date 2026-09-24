@@ -34,6 +34,8 @@
     "vite": "^7.1.5"
   },
   "optionalDependencies": {
-    "@napi-rs/canvas-linux-x64-gnu": "^0.1.100"
+    "@napi-rs/canvas-linux-x64-gnu": "^0.1.100",
+    "@rollup/rollup-linux-arm64-gnu": "4.63.4",
+    "@rollup/rollup-linux-x64-gnu": "4.63.4"
   }
 }
