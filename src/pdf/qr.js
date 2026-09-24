@@ -2,6 +2,7 @@
 
 import jsQR from "jsqr";
 import { left, right } from "../index.js";
+import { installNodePdfGlobals } from "./nodeCanvas.js";
 
 /**
  * @typedef { {
@@ -35,6 +36,7 @@ function decodeQr(data, width, height) {
  */
 async function loadPdfjs() {
   if (typeof document === "undefined") {
+    await installNodePdfGlobals();
     return import("pdfjs-dist/legacy/build/pdf.mjs");
   }
   const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
@@ -223,8 +225,8 @@ export const extractSwissQrFromPdf = async bytes => {
       : left("This PDF has no Swiss QR code. The tool reads an embedded QR image, not a photograph of a page.");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (/invalid pdf|pdf header|no pdf header/i.test(message)) return left("This file is not a readable PDF.");
-    return left(message);
+    if (/DOMMatrix|ImageData|Path2D|@napi-rs\/canvas/i.test(message)) return left(message);
+    return left("This file is not a readable PDF.");
   } finally {
     if (doc) await doc.destroy();
   }

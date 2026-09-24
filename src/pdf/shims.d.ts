@@ -24,3 +24,9 @@ declare module "pdfjs-dist/build/pdf.worker.min.mjs?url" {
   export default url;
 }
 
+declare module "@napi-rs/canvas" {
+  export const DOMMatrix: typeof globalThis.DOMMatrix;
+  export const ImageData: typeof globalThis.ImageData;
+  export const Path2D: typeof globalThis.Path2D;
+}
+
