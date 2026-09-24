@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   root:   "web",
+  base:   process.env.VITE_BASE ?? "/",
   server: { host: "127.0.0.1", port: 43187, strictPort: true },
   optimizeDeps: { exclude: ["@napi-rs/canvas"] },
   build: {
