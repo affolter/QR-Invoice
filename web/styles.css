@@ -1,0 +1,164 @@
+:root {
+  color-scheme: light;
+  --ink:    #1a1a1a;
+  --muted:  #5c5c5c;
+  --line:   #d6d6d6;
+  --bg:     #f7f6f3;
+  --card:   #fff;
+  --accent: #0b3d2e;
+  --warn:   #8a4b00;
+  --err:    #8c1d18;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: 16px/1.45 system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.lead,
+.status {
+  color: var(--muted);
+}
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 1.25rem 0;
+  padding: 1.5rem;
+  border: 2px dashed var(--line);
+  border-radius: 0.75rem;
+  background: var(--card);
+  cursor: pointer;
+  text-align: center;
+}
+
+.drop.over {
+  border-color: var(--accent);
+}
+
+.drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.queue {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.queue button {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.queue .queue-current {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.status[data-kind="error"] {
+  color: var(--err);
+}
+
+.status[data-kind="ok"] {
+  color: var(--accent);
+}
+
+.status[data-kind="review"] {
+  color: var(--warn);
+}
+
+#example {
+  background: var(--card);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+#panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem 1.1rem;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 1rem;
+}
+
+dd input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  background: var(--card);
+}
+
+dd input.locked {
+  background: #eee;
+  color: var(--muted);
+  cursor: default;
+}
+
+ul {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+}
+
+#review li,
+#issues li {
+  color: var(--warn);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+}
+
+button[hidden] {
+  display: none;
+}
+
+@media (max-width: 540px) {
+  dl {
+    grid-template-columns: 1fr;
+  }
+}

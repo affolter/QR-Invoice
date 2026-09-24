@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Swiss QR Invoice Migration Tool</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Swiss QR Invoice Migration Tool</h1>
+      <p class="lead">
+        Drop SPC text or PDFs with an embedded QR. Conversion runs in this tab — nothing is uploaded.
+        IBAN, amount, currency, and reference are never rewritten. Combined address type K becomes S;
+        house numbers like <code>8 B</code> stay <code>8 B</code>.
+      </p>
+
+      <label class="drop" id="drop">
+        <input id="file" type="file" multiple accept=".txt,.spc,.pdf,application/pdf,text/plain" />
+        <strong>Drop files here</strong>
+        <span>or click to choose .txt / .spc / .pdf</span>
+      </label>
+      <p>
+        <button id="example" type="button">Load example that needs review</button>
+      </p>
+
+      <p id="status" class="status" data-kind="empty">No file yet.</p>
+      <ul id="queue" class="queue"></ul>
+
+      <section id="panel" hidden>
+        <h2>Result</h2>
+        <dl id="summary"></dl>
+        <ul id="issues"></ul>
+        <ul id="review"></ul>
+        <div class="actions">
+          <button id="accept" type="button" hidden>Accept reviewed addresses</button>
+          <button id="spc" type="button" hidden>Download SPC</button>
+          <button id="pdf" type="button" hidden>Download PDF</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

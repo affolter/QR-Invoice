@@ -1,0 +1,27 @@
+{
+  "account": "CH4431999123000889012",
+  "amount": 1949.75,
+  "currency": "CHF",
+  "referenceType": "QRR",
+  "reference": "210000000003139471430009017",
+  "message": "Invoice 27338",
+  "qrType": "SPC",
+  "qrVersion": "0200",
+  "creditor": {
+    "name": "Affolter Test AG",
+    "street": "Seestrasse",
+    "buildingNumber": "8 B",
+    "postalCode": "8700",
+    "city": "Küsnacht",
+    "country": "CH",
+    "account": "CH4431999123000889012"
+  },
+  "debtor": {
+    "name": "Pia-Maria Rutschmann-Schnyder",
+    "street": "Grosse Marktgasse",
+    "buildingNumber": "28",
+    "postalCode": "9400",
+    "city": "Rorschach",
+    "country": "CH"
+  }
+}

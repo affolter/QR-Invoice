@@ -1,0 +1,39 @@
+{
+  "name": "qr-invoice",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Swiss QR-bill converter. Runs in the browser.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "invoice-converter": "./cli/cli.js"
+  },
+  "scripts": {
+    "cli": "node cli/cli.js",
+    "web": "vite",
+    "build": "vite build",
+    "test": "tsc -p jsconfig.json --noEmit && node run-tests.js",
+    "typecheck": "tsc -p jsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.96",
+    "jsqr": "^1.4.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.6.205",
+    "qrcode": "^1.5.4"
+  },
+  "browser": {
+    "@napi-rs/canvas": false
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  },
+  "optionalDependencies": {
+    "@napi-rs/canvas-linux-x64-gnu": "^0.1.100"
+  }
+}
